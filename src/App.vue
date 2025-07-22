@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { reactive, ref } from 'vue'
 import {
   DashboardOutlined,
   ScheduleOutlined,
@@ -20,6 +20,7 @@ import { inRect } from '@/utils'
 import { Cond } from '@lib/types'
 import EleRect from '@/components/eleRect.vue'
 import EleTag from '@/components/eleTag.vue'
+import IdenProp from '@/components/idenProp.vue'
 
 const selKeys = ref(['define'])
 const webView = ref<HTMLIFrameElement | null>(null)
@@ -49,28 +50,6 @@ const sideBar = reactive({
           type: 'Unknown',
           label: '长宽',
           desc: '确保页面在视图中完全展示'
-        },
-        mode: {
-          type: 'Radio',
-          label: '视图',
-          style: 'button',
-          options: [
-            { label: '选择模式', value: 'select' },
-            { label: '浏览模式', value: 'view' }
-          ]
-        },
-        selEle: {
-          type: 'Button',
-          label: '选择元素',
-          inner: '点击选择',
-          disabled: [Cond.create('mode', '!=', 'select')],
-          onClick: () => {
-            swchBoolProp(sideBar.formState, 'selEle')
-            swchBoolProp(sideBar.mapper, 'toolbox.items.selEle.ghost')
-            if (!sideBar.formState.selEle) {
-              wvMask.hovEle = null
-            }
-          }
         },
         showEleId: {
           type: 'Radio',
@@ -102,26 +81,21 @@ const sideBar = reactive({
           label: '列表容器',
           inner: '指定为当前元素',
           display: [Cond.create('iden', '=', 'list')],
-          disabled: wvMask.selEle === null,
-          onClick: () =>
-            setProp(
-              sideBar.mapper,
-              'pageSettings.items.listCtnr.inner',
-              wvMask.selEle?.clazz || '指定为当前元素'
-            )
+          onClick: () => (sideBar.formState.idenEle = 'listCtnr')
         },
         listItem: {
           type: 'Button',
           label: '列表元素',
           inner: '指定为当前元素',
           display: [Cond.create('iden', '=', 'list')],
-          disabled: wvMask.selEle === null,
-          onClick: () =>
-            setProp(
-              sideBar.mapper,
-              'pageSettings.items.listItem.inner',
-              wvMask.selEle?.clazz || '指定为当前元素'
-            )
+          onClick: () => (sideBar.formState.idenEle = 'listItem')
+        },
+        saveBtn: {
+          type: 'Button',
+          inner: '保存页面配置',
+          ghost: false,
+          display: [Cond.create('pgStgsChg', '=', true)],
+          onClick: () => console.log()
         }
       })
     },
@@ -130,46 +104,47 @@ const sideBar = reactive({
       label: '采集元素',
       fold: true,
       items: new Mapper({
-        addEle: {
+        addSchema: {
           type: 'Button',
           label: '',
-          inner: '添加采集体',
-          onClick: () => setProp(sideBar.formState, 'addEle', true),
+          inner: '添加模板',
+          onClick: () => {
+            swchBoolProp(sideBar.formState, 'addSchema')
+            swchBoolProp(sideBar.mapper, 'colcEles.items.addSchema.ghost')
+          }
         },
-        eleProp: {
-          type: 'EditList',
-          label: '字段',
-          display: [Cond.create('addEle', '=', true)],
-          mapper: new Mapper({
-            clazz: {
-              type: 'Button',
-              label: '类名',
-              inner: '指定为当前元素'
-            }
-          })
+        addProp: {
+          type: 'Button',
+          inner: '添加字段',
+          display: [Cond.create('addSchema', '=', true)],
+          onClick: () => swchBoolProp(sideBar.formState, 'addProp')
+        },
+        bindEle: {
+          type: 'Button',
+          label: '绑定元素',
+          display: [Cond.create('addProp', '=', true)]
+        },
+        propName: {
+          type: 'Input',
+          label: '字段名',
+          display: [Cond.create('addProp', '=', true)]
         }
       })
     }
   }),
   formState: {
     widHgt: [2000, 10000],
-    mode: 'view',
-    selEle: false,
     showEleId: 'clazz' as 'clazz' | 'xpath' | 'none',
-    addEle: false
+    addSchema: false,
+    idenEle: '' as '' | 'listCtnr' | 'listItem',
+    listCtnr: null as PageEle | null,
+    listItem: null as PageEle | null,
+    pgStgsChg: false,
+    addProp: false,
+    schemas: [] as { clazz: string; prop: string }[]
   }
 })
 const curURL = ref('')
-
-watch(
-  () => sideBar.formState.mode,
-  newMode => {
-    if (newMode === 'select') {
-      sideBar.formState.selEle = true
-      setProp(sideBar.mapper, 'toolbox.items.selEle.ghost', false)
-    }
-  }
-)
 
 function onSbFormUpdate(fm: any) {
   Object.entries(fm).map(([k, v]) => setProp(sideBar.formState, k, v))
@@ -219,21 +194,22 @@ function poiOnEle(x: number, y: number): PageEle | null {
 }
 function onMosMovOnWebview(e: MouseEvent) {
   e.preventDefault()
-  if (!sideBar.formState.selEle) {
+  if (!sideBar.formState.idenEle) {
     return
   }
   wvMask.hovEle = poiOnEle(e.offsetX + wvMask.left, e.offsetY + wvMask.top)
 }
-function onEleSelect() {
-  wvMask.selEle = wvMask.hovEle
+function onEleSelect(ele?: PageEle) {
+  wvMask.selEle = ele || wvMask.hovEle
   wvMask.hovEle = null
-  sideBar.formState.selEle = false
-  setProp(sideBar.mapper, 'toolbox.items.selEle.ghost', true)
-  setProp(sideBar.mapper, 'pageSettings.items.listCtnr.disabled', false)
+  if (sideBar.formState.idenEle) {
+    sideBar.formState[sideBar.formState.idenEle] = wvMask.selEle
+  } else {
+    sideBar.formState.idenEle = ''
+  }
 }
 function onEleClrSel() {
   wvMask.selEle = null
-  setProp(sideBar.mapper, 'pageSettings.items.listCtnr.disabled', true)
 }
 function onMainLytScroll(e: any) {
   wvMask.top = (e.target as HTMLElement).scrollTop
@@ -244,6 +220,17 @@ function onWidHgtChange(e: FocusEvent, whIdx: 0 | 1) {
 }
 function onMaskScroll(e: WheelEvent) {
   webViewCtnr.value?.scroll({ top: webViewCtnr.value?.scrollTop + e.deltaY, behavior: 'smooth' })
+}
+function onUrlClear(e: InputEvent) {
+  if (e.type === 'click') {
+    curURL.value = ''
+    wvMask.treeData = []
+  }
+}
+function onEleIden(ele?: PageEle) {
+  onEleSelect(ele)
+  onEleClrSel()
+  sideBar.formState.pgStgsChg = true
 }
 </script>
 
@@ -318,6 +305,7 @@ function onMaskScroll(e: WheelEvent) {
             v-model:value="urlForm.url"
             placeholder="http://127.0.0.1"
             allowClear
+            @change="onUrlClear"
           />
           <a-button type="primary" @click="() => (curURL = urlForm.url)">跳转</a-button>
         </a-input-group>
@@ -337,7 +325,7 @@ function onMaskScroll(e: WheelEvent) {
               @load="onWebviewLoaded"
             />
           </div>
-          <a-dropdown v-if="sideBar.formState.mode === 'select'" :trigger="['contextmenu']">
+          <a-dropdown :trigger="['contextmenu']">
             <div class="absolute top-0 left-0 bottom-4 right-4" @wheel="onMaskScroll">
               <svg class="w-full h-full" @mousemove="onMosMovOnWebview">
                 <EleRect
@@ -400,6 +388,33 @@ function onMaskScroll(e: WheelEvent) {
           :form="sideBar.formState"
           @update:fprop="onSbFormUpdate"
         >
+          <template #listCtnr>
+            <IdenProp
+              prop="listCtnr"
+              :element="sideBar.formState.listCtnr"
+              v-model:iden-ele="sideBar.formState.idenEle"
+              @ele-select="onEleIden"
+              @ele-clear="() => (sideBar.formState.listCtnr = null)"
+            />
+          </template>
+          <template #listItem>
+            <IdenProp
+              prop="listItem"
+              :element="sideBar.formState.listItem"
+              v-model:iden-ele="sideBar.formState.idenEle"
+              @ele-select="onEleIden"
+              @ele-clear="() => (sideBar.formState.listItem = null)"
+            />
+          </template>
+          <template #bindEle>
+            <IdenProp
+              prop="listItem"
+              :element="sideBar.formState.listItem"
+              v-model:iden-ele="sideBar.formState.idenEle"
+              @ele-select="onEleIden"
+              @ele-clear="() => (sideBar.formState.listItem = null)"
+            />
+          </template>
           <template #widHgt>
             <a-input-group>
               <a-row :gutter="4">
