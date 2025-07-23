@@ -21,6 +21,7 @@ import { Cond } from '@lib/types'
 import EleRect from '@/components/eleRect.vue'
 import EleTag from '@/components/eleTag.vue'
 import IdenProp from '@/components/idenProp.vue'
+import Schema from './types/schema'
 
 const selKeys = ref(['define'])
 const webView = ref<HTMLIFrameElement | null>(null)
@@ -113,11 +114,25 @@ const sideBar = reactive({
             swchBoolProp(sideBar.mapper, 'colcEles.items.addSchema.ghost')
           }
         },
+        schemas: {
+          type: 'Unknown',
+          label: '元素模板',
+          // display: [Cond.create('schemas.length', '!=', 0)]
+        },
         addProp: {
           type: 'Button',
           inner: '添加字段',
           display: [Cond.create('addSchema', '=', true)],
-          onClick: () => swchBoolProp(sideBar.formState, 'addProp')
+          onClick: () => {
+            swchBoolProp(sideBar.formState, 'addProp')
+            swchBoolProp(sideBar.mapper, 'colcEles.items.addProp.ghost')
+            swchBoolProp(sideBar.mapper, 'colcEles.items.addProp.primary')
+            if (sideBar.mapper.colcEles.items.addProp.inner === '添加字段') {
+              setProp(sideBar.mapper, 'colcEles.items.addProp.inner', '取消字段')
+            } else {
+              setProp(sideBar.mapper, 'colcEles.items.addProp.inner', '添加字段')
+            }
+          }
         },
         bindEle: {
           type: 'Button',
@@ -128,6 +143,22 @@ const sideBar = reactive({
           type: 'Input',
           label: '字段名',
           display: [Cond.create('addProp', '=', true)]
+        },
+        colcType: {
+          type: 'Select',
+          label: '提取方式',
+          options: [
+            { label: '文本', value: 'text' },
+            { label: '文件', value: 'file' }
+          ],
+          display: [Cond.create('addProp', '=', true)]
+        },
+        sbtBtn: {
+          type: 'Button',
+          inner: '提交',
+          ghost: false,
+          display: [Cond.create('addProp', '=', true)],
+          onClick: onAddPropSbt
         }
       })
     }
@@ -141,7 +172,10 @@ const sideBar = reactive({
     listItem: null as PageEle | null,
     pgStgsChg: false,
     addProp: false,
-    schemas: [] as { clazz: string; prop: string }[]
+    schemas: [] as Schema[],
+    bindEle: null as PageEle | null,
+    propName: '',
+    colcType: 'text' as 'text' | 'file'
   }
 })
 const curURL = ref('')
@@ -231,6 +265,18 @@ function onEleIden(ele?: PageEle) {
   onEleSelect(ele)
   onEleClrSel()
   sideBar.formState.pgStgsChg = true
+}
+function onAddPropSbt() {
+  sideBar.formState.schemas.push(
+    Schema.copy({
+      clazz: sideBar.formState.bindEle?.clazz,
+      prop: sideBar.formState.propName,
+      type: sideBar.formState.colcType
+    })
+  )
+  sideBar.formState.bindEle = null
+  sideBar.formState.propName = ''
+  sideBar.formState.colcType = 'text'
 }
 </script>
 
@@ -382,67 +428,80 @@ function onEleIden(ele?: PageEle) {
         :emitter="sideBar.widEmitter"
       />
       <a-layout-sider class="p-4" :width="sideBar.width" theme="light">
-        <FormGroup
-          :lblWid="7"
-          :mapper="sideBar.mapper"
-          :form="sideBar.formState"
-          @update:fprop="onSbFormUpdate"
-        >
-          <template #listCtnr>
-            <IdenProp
-              prop="listCtnr"
-              :element="sideBar.formState.listCtnr"
-              v-model:iden-ele="sideBar.formState.idenEle"
-              @ele-select="onEleIden"
-              @ele-clear="() => (sideBar.formState.listCtnr = null)"
-            />
-          </template>
-          <template #listItem>
-            <IdenProp
-              prop="listItem"
-              :element="sideBar.formState.listItem"
-              v-model:iden-ele="sideBar.formState.idenEle"
-              @ele-select="onEleIden"
-              @ele-clear="() => (sideBar.formState.listItem = null)"
-            />
-          </template>
-          <template #bindEle>
-            <IdenProp
-              prop="listItem"
-              :element="sideBar.formState.listItem"
-              v-model:iden-ele="sideBar.formState.idenEle"
-              @ele-select="onEleIden"
-              @ele-clear="() => (sideBar.formState.listItem = null)"
-            />
-          </template>
-          <template #widHgt>
-            <a-input-group>
-              <a-row :gutter="4">
-                <a-col :span="11">
-                  <a-input
-                    class="w-full"
-                    type="number"
-                    :value="sideBar.formState.widHgt[0]"
-                    @blur="(e: any) => onWidHgtChange(e, 0)"
-                  >
-                    <template #suffix>px</template>
-                  </a-input>
-                </a-col>
-                <a-col :span="2" class="text-center"><CloseOutlined /></a-col>
-                <a-col :span="11">
-                  <a-input
-                    class="w-full"
-                    type="number"
-                    :value="sideBar.formState.widHgt[1]"
-                    @blur="(e: any) => onWidHgtChange(e, 1)"
-                  >
-                    <template #suffix>px</template>
-                  </a-input>
-                </a-col>
-              </a-row>
-            </a-input-group>
-          </template>
-        </FormGroup>
+        <div class="h-full relative">
+          <FormGroup
+            class="absolute top-0 left-0 right-0 bottom-0 overflow-auto pr-3"
+            :lblWid="7"
+            :mapper="sideBar.mapper"
+            :form="sideBar.formState"
+            @update:fprop="onSbFormUpdate"
+          >
+            <template #listCtnr>
+              <IdenProp
+                prop="listCtnr"
+                :element="sideBar.formState.listCtnr"
+                v-model:iden-ele="sideBar.formState.idenEle"
+                @ele-select="onEleIden"
+                @ele-clear="() => (sideBar.formState.listCtnr = null)"
+              />
+            </template>
+            <template #listItem>
+              <IdenProp
+                prop="listItem"
+                :element="sideBar.formState.listItem"
+                v-model:iden-ele="sideBar.formState.idenEle"
+                @ele-select="onEleIden"
+                @ele-clear="() => (sideBar.formState.listItem = null)"
+              />
+            </template>
+            <template #bindEle>
+              <IdenProp
+                prop="bindEle"
+                :element="sideBar.formState.bindEle"
+                v-model:iden-ele="sideBar.formState.idenEle"
+                @ele-select="onEleIden"
+                @ele-clear="() => (sideBar.formState.bindEle = null)"
+              />
+            </template>
+            <template #schemas>
+              <a-list size="small" bordered :data-source="sideBar.formState.schemas">
+                <template #renderItem="{ item }">
+                  <a-list-item>{{ item }}</a-list-item>
+                </template>
+              </a-list>
+              <a-card size="small" title="Europe Street beat">
+                <a-card-grid style="width: 50%; text-align: center">Content</a-card-grid>
+              </a-card>
+            </template>
+            <template #widHgt>
+              <a-input-group>
+                <a-row :gutter="4">
+                  <a-col :span="11">
+                    <a-input
+                      class="w-full"
+                      type="number"
+                      :value="sideBar.formState.widHgt[0]"
+                      @blur="(e: any) => onWidHgtChange(e, 0)"
+                    >
+                      <template #suffix>px</template>
+                    </a-input>
+                  </a-col>
+                  <a-col :span="2" class="text-center"><CloseOutlined /></a-col>
+                  <a-col :span="11">
+                    <a-input
+                      class="w-full"
+                      type="number"
+                      :value="sideBar.formState.widHgt[1]"
+                      @blur="(e: any) => onWidHgtChange(e, 1)"
+                    >
+                      <template #suffix>px</template>
+                    </a-input>
+                  </a-col>
+                </a-row>
+              </a-input-group>
+            </template>
+          </FormGroup>
+        </div>
       </a-layout-sider>
     </a-layout>
   </a-layout>
