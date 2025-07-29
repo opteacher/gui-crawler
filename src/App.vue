@@ -7,24 +7,26 @@ import {
   DisconnectOutlined,
   DoubleLeftOutlined,
   DoubleRightOutlined,
-  CloseOutlined
+  CloseOutlined,
+  RightOutlined
 } from '@ant-design/icons-vue'
 import FlexDivider from '@lib/components/FlexDivider.vue'
 import { TinyEmitter } from 'tiny-emitter'
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
-import { setProp, swchBoolProp } from '@lib/utils'
+import { reqGet, setProp, swchBoolProp } from '@lib/utils'
 import _ from 'lodash'
-import PageEle from '@/types/pageEle'
+import type PageEle from '@/types/pageEle'
 import { inRect } from '@/utils'
 import { Cond } from '@lib/types'
 import EleRect from '@/components/eleRect.vue'
 import EleTag from '@/components/eleTag.vue'
-import IdenProp from '@/components/idenProp.vue'
 import Schema from './types/schema'
+import EleSelWarp from '@/components/eleSelWrap.vue'
+import { WebviewTag } from 'electron'
 
 const selKeys = ref(['define'])
-const webView = ref<HTMLIFrameElement | null>(null)
+const webView = ref<WebviewTag | null>(null)
 const webViewCtnr = ref<HTMLElement | null>(null)
 const urlForm = reactive({ url: 'https://www.jiuyangongshe.com/' })
 const wvMask = reactive({
@@ -69,34 +71,42 @@ const sideBar = reactive({
       label: '页面配置',
       fold: true,
       items: new Mapper({
-        iden: {
-          type: 'Select',
-          label: '页面类型',
-          options: [
-            { label: '列表', value: 'list' },
-            { label: '详细', value: 'detail' }
-          ]
+        structure: {
+          type: 'Text',
+          label: '包含结构'
         },
         listCtnr: {
-          type: 'Button',
+          type: 'Unknown',
           label: '列表容器',
-          inner: '指定为当前元素',
-          display: [Cond.create('iden', '=', 'list')],
           onClick: () => (sideBar.formState.idenEle = 'listCtnr')
         },
         listItem: {
-          type: 'Button',
+          type: 'Unknown',
           label: '列表元素',
-          inner: '指定为当前元素',
-          display: [Cond.create('iden', '=', 'list')],
           onClick: () => (sideBar.formState.idenEle = 'listItem')
+        },
+        itemLink: {
+          type: 'Unknown',
+          label: '元素链接',
+          onClick: () => (sideBar.formState.idenEle = 'itemLink')
         },
         saveBtn: {
           type: 'Button',
-          inner: '保存页面配置',
-          ghost: false,
-          display: [Cond.create('pgStgsChg', '=', true)],
-          onClick: () => console.log()
+          inner: '跳转到详情页',
+          display: [
+            Cond.create('listCtnr', '!=', null),
+            Cond.create('listItem', '!=', null),
+            Cond.create('itemLink', '!=', null)
+          ],
+          onClick: async () => {
+            const lnkClazz = [
+              sideBar.formState.listCtnr?.clazz.replace(/\s+/g, '.'),
+              sideBar.formState.listItem?.clazz.replace(/\s+/g, '.'),
+              sideBar.formState.itemLink?.clazz.replace(/\s+/g, '.')
+            ].join(' .')
+            console.log(`document.querySelector(".${lnkClazz}").click()`)
+            console.log(await webView.value?.executeJavaScript(`document.querySelector(".${lnkClazz}").click()`))
+          }
         }
       })
     },
@@ -116,7 +126,7 @@ const sideBar = reactive({
         },
         schemas: {
           type: 'Unknown',
-          label: '元素模板',
+          label: '元素模板'
           // display: [Cond.create('schemas.length', '!=', 0)]
         },
         addProp: {
@@ -167,9 +177,10 @@ const sideBar = reactive({
     widHgt: [2000, 10000],
     showEleId: 'clazz' as 'clazz' | 'xpath' | 'none',
     addSchema: false,
-    idenEle: '' as '' | 'listCtnr' | 'listItem',
+    idenEle: '' as '' | 'listCtnr' | 'listItem' | 'itemLink' | 'bindEle',
     listCtnr: null as PageEle | null,
     listItem: null as PageEle | null,
+    itemLink: null as PageEle | null,
     pgStgsChg: false,
     addProp: false,
     schemas: [] as Schema[],
@@ -184,18 +195,15 @@ function onSbFormUpdate(fm: any) {
   Object.entries(fm).map(([k, v]) => setProp(sideBar.formState, k, v))
 }
 async function onWebviewLoaded() {
-  // console.log(
-  //   await reqGet('page/element', 's', {
-  //     project: 'login_platform',
-  //     type: 'api',
-  //     action: 'collect',
-  //     axiosConfig: { params: { url: curURL.value, ...webView.value?.getBoundingClientRect() } }
-  //   })
-  // )
-  const { elements, treeData, rectBox } = await window.ipcRenderer.invoke(
-    'collect-elements',
-    curURL.value
-  )
+  const { elements, treeData, rectBox } = await reqGet('page/element', 's', {
+    project: 'login_platform',
+    type: 'api',
+    action: 'collect',
+    axiosConfig: {
+      baseURL: 'http://192.168.1.11:4009',
+      params: { url: curURL.value, ...webView.value?.getBoundingClientRect() }
+    }
+  })
   wvMask.elements = elements
   wvMask.treeData = treeData
 
@@ -244,6 +252,7 @@ function onEleSelect(ele?: PageEle) {
 }
 function onEleClrSel() {
   wvMask.selEle = null
+  sideBar.formState.idenEle = ''
 }
 function onMainLytScroll(e: any) {
   wvMask.top = (e.target as HTMLElement).scrollTop
@@ -260,11 +269,6 @@ function onUrlClear(e: InputEvent) {
     curURL.value = ''
     wvMask.treeData = []
   }
-}
-function onEleIden(ele?: PageEle) {
-  onEleSelect(ele)
-  onEleClrSel()
-  sideBar.formState.pgStgsChg = true
 }
 function onAddPropSbt() {
   sideBar.formState.schemas.push(
@@ -361,14 +365,18 @@ function onAddPropSbt() {
             class="overflow-auto absolute left-0 top-0 bottom-0 right-0"
             @scroll="onMainLytScroll"
           >
-            <iframe
+            <webview
               ref="webView"
               class="border-none overflow-hidden"
               :src="curURL"
-              :width="sideBar.formState.widHgt[0]"
-              :height="sideBar.formState.widHgt[1]"
-              scrolling="no"
-              @load="onWebviewLoaded"
+              nodeintegration
+              disablewebsecurity
+              webpreferences="allowRunningInsecureContent"
+              :style="{
+                width: sideBar.formState.widHgt[0] + 'px',
+                height: sideBar.formState.widHgt[1] + 'px'
+              }"
+              @did-finish-load="onWebviewLoaded"
             />
           </div>
           <a-dropdown :trigger="['contextmenu']">
@@ -436,31 +444,43 @@ function onAddPropSbt() {
             :form="sideBar.formState"
             @update:fprop="onSbFormUpdate"
           >
+            <template #structure>
+              容器
+              <RightOutlined />
+              元素
+              <RightOutlined />
+              链接
+            </template>
             <template #listCtnr>
-              <IdenProp
-                prop="listCtnr"
-                :element="sideBar.formState.listCtnr"
-                v-model:iden-ele="sideBar.formState.idenEle"
-                @ele-select="onEleIden"
-                @ele-clear="() => (sideBar.formState.listCtnr = null)"
+              <EleSelWarp
+                pname="listCtnr"
+                :form="sideBar.formState"
+                @ele-select="onEleSelect"
+                @ele-clear="onEleClrSel"
               />
             </template>
             <template #listItem>
-              <IdenProp
-                prop="listItem"
-                :element="sideBar.formState.listItem"
-                v-model:iden-ele="sideBar.formState.idenEle"
-                @ele-select="onEleIden"
-                @ele-clear="() => (sideBar.formState.listItem = null)"
+              <EleSelWarp
+                pname="listItem"
+                :form="sideBar.formState"
+                @ele-select="onEleSelect"
+                @ele-clear="onEleClrSel"
+              />
+            </template>
+            <template #itemLink>
+              <EleSelWarp
+                pname="itemLink"
+                :form="sideBar.formState"
+                @ele-select="onEleSelect"
+                @ele-clear="onEleClrSel"
               />
             </template>
             <template #bindEle>
-              <IdenProp
-                prop="bindEle"
-                :element="sideBar.formState.bindEle"
-                v-model:iden-ele="sideBar.formState.idenEle"
-                @ele-select="onEleIden"
-                @ele-clear="() => (sideBar.formState.bindEle = null)"
+              <EleSelWarp
+                pname="bindEle"
+                :form="sideBar.formState"
+                @ele-select="onEleSelect"
+                @ele-clear="onEleClrSel"
               />
             </template>
             <template #schemas>
@@ -469,8 +489,8 @@ function onAddPropSbt() {
                   <a-list-item>{{ item }}</a-list-item>
                 </template>
               </a-list>
-              <a-card size="small" title="Europe Street beat">
-                <a-card-grid style="width: 50%; text-align: center">Content</a-card-grid>
+              <a-card>
+                <a-card-grid class="w-1/2 text-center">Content</a-card-grid>
               </a-card>
             </template>
             <template #widHgt>

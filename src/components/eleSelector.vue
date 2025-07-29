@@ -14,14 +14,14 @@
     :ghost="idenEle !== prop"
     @click="() => emit('update:idenEle', idenEle ? '' : prop)"
   >
-    指定为当前元素
+    选择元素
   </a-button>
 </template>
 
 <script setup lang="ts">
-import PageEle from '@/types/pageEle'
+import type PageEle from '@/types/pageEle'
 import { CloseOutlined } from '@ant-design/icons-vue'
-import { PropType } from 'vue'
+import { type PropType } from 'vue'
 
 defineProps({
   prop: { type: String, default: '' },

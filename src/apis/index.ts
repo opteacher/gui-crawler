@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { App } from 'vue'
+import { type App } from 'vue'
 import VueAxios from 'vue-axios'
 
 axios.interceptors.request.use(
