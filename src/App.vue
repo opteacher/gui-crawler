@@ -5,8 +5,6 @@ import {
   ScheduleOutlined,
   FieldTimeOutlined,
   DisconnectOutlined,
-  DoubleLeftOutlined,
-  DoubleRightOutlined,
   CloseOutlined,
   RightOutlined
 } from '@ant-design/icons-vue'
@@ -16,7 +14,7 @@ import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
 import { reqGet, setProp, swchBoolProp } from '@lib/utils'
 import _ from 'lodash'
-import type PageEle from '@/types/pageEle'
+import PageEle from '@/types/pageEle'
 import { inRect } from '@/utils'
 import { Cond } from '@lib/types'
 import EleRect from '@/components/eleRect.vue'
@@ -40,9 +38,12 @@ const wvMask = reactive({
   selEle: null as PageEle | null
 })
 const sideBar = reactive({
-  width: 400,
-  showLeft: true,
-  widEmitter: new TinyEmitter(),
+  leftWid: 300,
+  leftVsb: true,
+  lftEmitter: new TinyEmitter(),
+  rightWid: 400,
+  rightVsb: true,
+  rgtEmitter: new TinyEmitter(),
   mapper: new Mapper({
     toolbox: {
       type: 'FormGroup',
@@ -98,15 +99,14 @@ const sideBar = reactive({
             Cond.create('listItem', '!=', null),
             Cond.create('itemLink', '!=', null)
           ],
-          onClick: async () => {
-            const lnkClazz = [
-              sideBar.formState.listCtnr?.clazz.replace(/\s+/g, '.'),
-              sideBar.formState.listItem?.clazz.replace(/\s+/g, '.'),
-              sideBar.formState.itemLink?.clazz.replace(/\s+/g, '.')
-            ].join(' .')
-            console.log(`document.querySelector(".${lnkClazz}").click()`)
-            console.log(await webView.value?.executeJavaScript(`document.querySelector(".${lnkClazz}").click()`))
-          }
+          onClick: () =>
+            webView.value?.executeJavaScript(
+              `document.querySelector(".${[
+                sideBar.formState.listCtnr?.clazz.replace(/\s+/g, '.'),
+                sideBar.formState.listItem?.clazz.replace(/\s+/g, '.'),
+                sideBar.formState.itemLink?.clazz.replace(/\s+/g, '.')
+              ].join(' .')}").click()`
+            )
         }
       })
     },
@@ -119,6 +119,7 @@ const sideBar = reactive({
           type: 'Button',
           label: '',
           inner: '添加模板',
+          offset: 7,
           onClick: () => {
             swchBoolProp(sideBar.formState, 'addSchema')
             swchBoolProp(sideBar.mapper, 'colcEles.items.addSchema.ghost')
@@ -178,7 +179,7 @@ const sideBar = reactive({
     showEleId: 'clazz' as 'clazz' | 'xpath' | 'none',
     addSchema: false,
     idenEle: '' as '' | 'listCtnr' | 'listItem' | 'itemLink' | 'bindEle',
-    listCtnr: null as PageEle | null,
+    listCtnr: PageEle.copy({ clazz: 'community-bar' }) as PageEle | null,
     listItem: null as PageEle | null,
     itemLink: null as PageEle | null,
     pgStgsChg: false,
@@ -200,7 +201,6 @@ async function onWebviewLoaded() {
     type: 'api',
     action: 'collect',
     axiosConfig: {
-      baseURL: 'http://192.168.1.11:4009',
       params: { url: curURL.value, ...webView.value?.getBoundingClientRect() }
     }
   })
@@ -210,10 +210,12 @@ async function onWebviewLoaded() {
   sideBar.formState.widHgt = [rectBox.width || 2000, rectBox.height || 10000]
 }
 function onMouseMove(e: MouseEvent) {
-  sideBar.widEmitter.emit('mousemove', e)
+  sideBar.lftEmitter.emit('mousemove', e)
+  sideBar.rgtEmitter.emit('mousemove', e)
 }
 function onMouseUp() {
-  sideBar.widEmitter.emit('mouseup')
+  sideBar.lftEmitter.emit('mouseup')
+  sideBar.rgtEmitter.emit('mouseup')
 }
 function poiOnEle(x: number, y: number): PageEle | null {
   const els = []
@@ -308,7 +310,7 @@ function onAddPropSbt() {
       </a-menu>
     </a-layout-header>
     <a-layout class="relative" @mousemove="onMouseMove" @mouseup="onMouseUp">
-      <a-layout-sider v-if="sideBar.showLeft" :width="300" theme="light">
+      <a-layout-sider v-show="sideBar.leftVsb" :width="sideBar.leftWid" theme="light">
         <div class="h-full flex flex-col">
           <div class="flex-1 relative">
             <a-tree
@@ -335,20 +337,19 @@ function onAddPropSbt() {
           </a-descriptions>
         </div>
       </a-layout-sider>
-      <a-button
-        class="absolute top-5 h-fit border-l-0 rounded-s-none"
-        :style="{ left: sideBar.showLeft ? '300px' : '0' }"
-        size="small"
-        @click="() => swchBoolProp(sideBar, 'showLeft')"
-      >
-        元
-        <br />
-        素
-        <br />
-        <DoubleLeftOutlined v-if="sideBar.showLeft" />
-        <DoubleRightOutlined v-else />
-      </a-button>
-      <a-layout-content class="p-4 ml-5 flex flex-col">
+      <FlexDivider
+        orientation="vertical"
+        v-model:wid-hgt="sideBar.leftWid"
+        :emitter="sideBar.lftEmitter"
+        ctrl-side="leftTop"
+        bg-color="white"
+        hbtn-txt="页面节点树"
+        :hide-btn="true"
+        :hbtn-pos="{ bottom: '10px' }"
+        :is-hide="!sideBar.leftVsb"
+        @hbtn-click="() => swchBoolProp(sideBar, 'leftVsb')"
+      />
+      <a-layout-content class="p-4 flex flex-col">
         <a-input-group class="flex mb-3" compact>
           <a-input
             class="flex-1"
@@ -371,6 +372,7 @@ function onAddPropSbt() {
               :src="curURL"
               nodeintegration
               disablewebsecurity
+              allowpopups
               webpreferences="allowRunningInsecureContent"
               :style="{
                 width: sideBar.formState.widHgt[0] + 'px',
@@ -429,13 +431,54 @@ function onAddPropSbt() {
             </template>
           </a-empty>
         </div>
+        <a-descriptions bordered>
+          <a-descriptions-item label="长宽">
+            <a-input-group>
+              <a-row :gutter="4">
+                <a-col :span="11">
+                  <a-input
+                    type="number"
+                    :value="sideBar.formState.widHgt[0]"
+                    @blur="(e: any) => onWidHgtChange(e, 0)"
+                  >
+                    <template #suffix>px</template>
+                  </a-input>
+                </a-col>
+                <a-col :span="2" class="text-center"><CloseOutlined /></a-col>
+                <a-col :span="11">
+                  <a-input
+                    type="number"
+                    :value="sideBar.formState.widHgt[1]"
+                    @blur="(e: any) => onWidHgtChange(e, 1)"
+                  >
+                    <template #suffix>px</template>
+                  </a-input>
+                </a-col>
+              </a-row>
+            </a-input-group>
+          </a-descriptions-item>
+          <a-descriptions-item label="显示元素ID">
+            <a-radio-group v-model:value="sideBar.formState.showEleId">
+              <a-radio-button value="clazz">类名</a-radio-button>
+              <a-radio-button value="xpath">xpath</a-radio-button>
+              <a-radio-button value="none">不显示</a-radio-button>
+            </a-radio-group>
+          </a-descriptions-item>
+        </a-descriptions>
       </a-layout-content>
       <FlexDivider
         orientation="vertical"
-        v-model:wid-hgt="sideBar.width"
-        :emitter="sideBar.widEmitter"
+        v-model:wid-hgt="sideBar.rightWid"
+        :emitter="sideBar.rgtEmitter"
+        ctrl-side="rightBottom"
+        bg-color="white"
+        hbtn-txt="任务参数"
+        :hide-btn="true"
+        :is-hide="!sideBar.rightVsb"
+        :hbtn-pos="{ bottom: '10px' }"
+        @hbtn-click="() => swchBoolProp(sideBar, 'rightVsb')"
       />
-      <a-layout-sider class="p-4" :width="sideBar.width" theme="light">
+      <a-layout-sider v-show="sideBar.rightVsb" class="p-4" :width="sideBar.rightWid" theme="light">
         <div class="h-full relative">
           <FormGroup
             class="absolute top-0 left-0 right-0 bottom-0 overflow-auto pr-3"

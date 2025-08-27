@@ -1,20 +1,26 @@
-import { RectBox } from '@/utils'
+import { gnlCpy } from "@lib/utils"
 
-export default interface PageEle {
+export default class PageEle {
   xpath: string
   clazz: string
   tagName: string
-  rectBox: RectBox
-}
+  rectBox: DOMRect
 
-export function reset(ele: PageEle) {
-  ele.xpath = ''
-  ele.clazz = ''
-  ele.tagName = ''
-  ele.rectBox = {
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0
+  constructor() {
+    this.xpath = ''
+    this.clazz = ''
+    this.tagName = ''
+    this.rectBox = new DOMRect()
+  }
+
+  reset() {
+    this.xpath = ''
+    this.clazz = ''
+    this.tagName = ''
+    this.rectBox = new DOMRect()
+  }
+
+  static copy(src: any, tgt?: PageEle, force = false) {
+    return gnlCpy(PageEle, src, tgt, { force })
   }
 }
