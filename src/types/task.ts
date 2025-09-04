@@ -2,6 +2,17 @@ import { gnlCpy } from '@lib/utils'
 import dayjs, { Dayjs, OpUnitType } from 'dayjs'
 import Node from './node'
 
+export const units = {
+  y: '年',
+  M: '月',
+  w: '周',
+  D: '天',
+  h: '小时',
+  m: '分钟',
+  s: '秒',
+  ms: '毫秒'
+}
+
 export default class Task {
   key: string
   name: string

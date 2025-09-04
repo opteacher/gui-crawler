@@ -35,7 +35,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '^/login_platform/(mdl|api)': {
+      '^/gui-crawler/(mdl|api)': {
         target: 'http://124.28.221.82:6031',
         ws: true,
         changeOrigin: true
