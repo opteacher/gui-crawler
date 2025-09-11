@@ -3,14 +3,13 @@ import dayjs, { Dayjs, OpUnitType } from 'dayjs'
 import Node from './node'
 
 export const units = {
-  y: '年',
-  M: '月',
-  w: '周',
-  D: '天',
-  h: '小时',
-  m: '分钟',
-  s: '秒',
-  ms: '毫秒'
+  years: '年',
+  months: '月',
+  weeks: '周',
+  days: '天',
+  hours: '小时',
+  minutes: '分钟',
+  seconds: '秒'
 }
 
 export default class Task {
@@ -28,7 +27,7 @@ export default class Task {
     this.desc = ''
     this.start = dayjs()
     this.interval = 0
-    this.perUnit = 's'
+    this.perUnit = 'seconds'
     this.fkNode = ''
   }
 
@@ -38,7 +37,7 @@ export default class Task {
     this.desc = ''
     this.start = dayjs()
     this.interval = 0
-    this.perUnit = 's'
+    this.perUnit = 'seconds'
     this.fkNode = ''
   }
 

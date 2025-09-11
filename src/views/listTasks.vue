@@ -72,14 +72,14 @@ const mapper = reactive<Mapper>(
     <template #ctrl="{ record }: any">
       <a-tooltip>
         <template #title>开始</template>
-        <a-button size="small" type="link">
+        <a-button size="small" type="link" @click="() => tskAPI.start(record)">
           <template #icon><PlayCircleOutlined /></template>
         </a-button>
       </a-tooltip>
       <a-tooltip>
         <template #title>停止</template>
         <a-button size="small" type="link">
-          <a-button size="small" type="link" danger>
+          <a-button size="small" type="link" danger @click="() => tskAPI.stop(record)">
             <template #icon><PauseCircleOutlined /></template>
           </a-button>
         </a-button>
