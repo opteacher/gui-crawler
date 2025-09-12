@@ -12,6 +12,22 @@ export const units = {
   seconds: '秒'
 }
 
+export class Job {
+  nextRunAt: Dayjs
+  lastRunAt: Dayjs
+  lastFinishedAt: Dayjs
+
+  constructor() {
+    this.nextRunAt = dayjs(null)
+    this.lastRunAt = dayjs(null)
+    this.lastFinishedAt = dayjs(null)
+  }
+
+  static copy(src: any, tgt?: Job, force = false) {
+    return gnlCpy(Job, src, tgt, { force })
+  }
+}
+
 export default class Task {
   key: string
   name: string
@@ -20,6 +36,7 @@ export default class Task {
   interval: number
   perUnit: OpUnitType
   fkNode: string | Node
+  job?: Job
 
   constructor() {
     this.key = ''
@@ -39,9 +56,10 @@ export default class Task {
     this.interval = 0
     this.perUnit = 'seconds'
     this.fkNode = ''
+    this.job = undefined
   }
 
   static copy(src: any, tgt?: Task, force = false) {
-    return gnlCpy(Task, src, tgt, { force, cpyMapper: { fkNode: Node.copy } })
+    return gnlCpy(Task, src, tgt, { force, cpyMapper: { fkNode: Node.copy, job: Job.copy } })
   }
 }

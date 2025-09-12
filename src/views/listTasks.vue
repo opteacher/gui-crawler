@@ -4,9 +4,14 @@ import EditableTable from '@lib/components/EditableTable.vue'
 import Column from '@lib/types/column'
 import Mapper from '@lib/types/mapper'
 import { newOne, getProp } from '@lib/utils'
-import { reactive } from 'vue'
+import { onMounted, reactive } from 'vue'
 import tskAPI from '@/apis/task'
-import { PlayCircleOutlined, PauseCircleOutlined } from '@ant-design/icons-vue'
+import {
+  PlayCircleOutlined,
+  PauseCircleOutlined,
+  SyncOutlined
+} from '@ant-design/icons-vue'
+import { TinyEmitter } from 'tiny-emitter'
 
 const columns = reactive<Column[]>([
   new Column('名称', 'name'),
@@ -41,14 +46,29 @@ const mapper = reactive<Mapper>(
     }
   })
 )
+const emitter = new TinyEmitter()
+
+onMounted(() => {})
+
+async function onTaskStart(task: Task) {
+  await tskAPI.start(task)
+  emitter.emit('refresh')
+}
+async function onTaskStop(task: Task) {
+  await tskAPI.stop(task)
+  emitter.emit('refresh')
+}
 </script>
 
 <template>
   <EditableTable
+    class="mx-2"
     title="定时爬虫任务"
     :api="tskAPI"
     :columns="columns"
     :mapper="mapper"
+    :emitter="emitter"
+    :ref-opns="['auto']"
     :new-fun="() => newOne(Task)"
   >
     <template #start="{ record }: any">
@@ -70,20 +90,29 @@ const mapper = reactive<Mapper>(
       </a-form-item-rest>
     </template>
     <template #ctrl="{ record }: any">
-      <a-tooltip>
-        <template #title>开始</template>
-        <a-button size="small" type="link" @click="() => tskAPI.start(record)">
-          <template #icon><PlayCircleOutlined /></template>
-        </a-button>
-      </a-tooltip>
-      <a-tooltip>
-        <template #title>停止</template>
-        <a-button size="small" type="link">
-          <a-button size="small" type="link" danger @click="() => tskAPI.stop(record)">
+      <a-space v-if="record.job">
+        <a-popconfirm title="确定停止该任务吗？" @confirm="() => onTaskStop(record)">
+          <a-button size="small" type="link" danger @click.prevent>
             <template #icon><PauseCircleOutlined /></template>
+            停止
           </a-button>
-        </a-button>
-      </a-tooltip>
+        </a-popconfirm>
+        <a-tooltip>
+          <template #title>
+            上次执行结束时间：{{ record.job.lastFinishedAt.format('MM-DD HH:mm:ss') }}
+          </template>
+          <a-tag color="processing">
+            <template #icon>
+              <SyncOutlined :spin="true" />
+            </template>
+            上次执行时间：{{ record.job.lastRunAt.format('MM-DD HH:mm:ss') }}
+          </a-tag>
+        </a-tooltip>
+      </a-space>
+      <a-button v-else size="small" type="link" @click="() => onTaskStart(record)">
+        <template #icon><PlayCircleOutlined /></template>
+        开始
+      </a-button>
     </template>
   </EditableTable>
 </template>
