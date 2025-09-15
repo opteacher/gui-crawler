@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import {
-  LeftOutlined,
-  DisconnectOutlined,
-  CloseOutlined,
-  RightOutlined
-} from '@ant-design/icons-vue'
+import { onMounted, reactive, ref } from 'vue'
+import { DisconnectOutlined, CloseOutlined, RightOutlined } from '@ant-design/icons-vue'
 import FlexDivider from '@lib/components/FlexDivider.vue'
 import { TinyEmitter } from 'tiny-emitter'
 import FormGroup from '@lib/components/FormGroup.vue'
@@ -20,6 +15,7 @@ import EleTag from '@/components/eleTag.vue'
 import Schema from '@/types/schema'
 import EleSelWarp from '@/components/eleSelWrap.vue'
 import { WebviewTag } from 'electron'
+import electronPuppeteer from 'electron-puppeteer'
 
 const webView = ref<WebviewTag | null>(null)
 const webViewCtnr = ref<HTMLElement | null>(null)
@@ -164,27 +160,44 @@ const sideBar = reactive({
   }
 })
 const toolbox = reactive({
-  widHgt: [2000, 10000],
+  widHgt: '1280x720',
+  whDict: ['800x600', '1024x768', '1280x720', '1920x1080', '2560x1440'],
   showEleId: 'clazz' as 'clazz' | 'xpath' | 'none'
 })
+const topBar = reactive({
+  stepItems: [
+    { title: '基础配置', description: '配置基本的页面信息' },
+    { title: '采集配置', description: '配置要采集的内容' },
+    { title: '预览数据', description: '预览采集结果' },
+    { title: '保存任务', description: '保存当前爬虫任务' }
+  ],
+  curStep: 0
+})
 const curURL = ref('')
+
+onMounted(() => {
+  // webView.value?.addEventListener('dom-ready', () => {
+  //   webView.value?.openDevTools()
+  // })
+})
 
 function onSbFormUpdate(fm: any) {
   Object.entries(fm).map(([k, v]) => setProp(sideBar.formState, k, v))
 }
 async function onWebviewLoaded() {
-  const { elements, treeData, rectBox } = await reqGet('page/element', 's', {
-    project: 'login_platform',
-    type: 'api',
-    action: 'collect',
-    axiosConfig: {
-      params: { url: curURL.value, ...webView.value?.getBoundingClientRect() }
-    }
-  })
-  wvMask.elements = elements
-  wvMask.treeData = treeData
+  // const { elements, treeData, rectBox } = await reqGet('page/element', 's', {
+  //   project: 'login_platform',
+  //   type: 'api',
+  //   action: 'collect',
+  //   axiosConfig: {
+  //     params: { url: curURL.value, ...webView.value?.getBoundingClientRect() }
+  //   }
+  // })
+  // wvMask.elements = elements
+  // wvMask.treeData = treeData
 
-  toolbox.widHgt = [rectBox.width || 2000, rectBox.height || 10000]
+  // toolbox.widHgt = [rectBox.width || 1280, rectBox.height || 720].join('x')
+  console.log(webView.value?.getWebContentsId())
 }
 function onMouseMove(e: MouseEvent) {
   sideBar.lftEmitter.emit('mousemove', e)
@@ -238,7 +251,7 @@ function onMainLytScroll(e: any) {
   wvMask.left = (e.target as HTMLElement).scrollLeft
 }
 function onWidHgtChange(e: FocusEvent, whIdx: 0 | 1) {
-  toolbox.widHgt[whIdx] = parseInt((e.target as HTMLInputElement).value)
+  // toolbox.widHgt[whIdx] = parseInt((e.target as HTMLInputElement).value)
 }
 function onMaskScroll(e: WheelEvent) {
   webViewCtnr.value?.scroll({ top: webViewCtnr.value?.scrollTop + e.deltaY, behavior: 'smooth' })
@@ -304,11 +317,8 @@ function onAddPropSbt() {
       :is-hide="!sideBar.leftVsb"
       @hbtn-click="() => swchBoolProp(sideBar, 'leftVsb')"
     />
-    <a-layout-content class="p-4 flex flex-col">
-      <a-input-group class="flex mb-3" compact>
-        <a-button type="text">
-          <template #icon><LeftOutlined /></template>
-        </a-button>
+    <a-layout-content class="p-4 flex flex-col space-y-4">
+      <a-input-group class="flex" compact>
         <a-input
           class="flex-1"
           v-model:value="urlForm.url"
@@ -318,6 +328,7 @@ function onAddPropSbt() {
         />
         <a-button type="primary" @click="() => (curURL = urlForm.url)">跳转</a-button>
       </a-input-group>
+      <a-steps :current="topBar.curStep" :items="topBar.stepItems" />
       <div v-if="curURL" class="flex-1 relative">
         <div
           ref="webViewCtnr"
@@ -326,16 +337,12 @@ function onAddPropSbt() {
         >
           <webview
             ref="webView"
-            class="border-none overflow-hidden"
+            class="border-none overflow-hidden w-full h-full"
             :src="curURL"
             nodeintegration
             disablewebsecurity
             allowpopups
             webpreferences="allowRunningInsecureContent"
-            :style="{
-              width: toolbox.widHgt[0] + 'px',
-              height: toolbox.widHgt[1] + 'px'
-            }"
             @did-finish-load="onWebviewLoaded"
           />
         </div>
@@ -389,52 +396,24 @@ function onAddPropSbt() {
           </template>
         </a-empty>
       </div>
-      <a-descriptions size="small" bordered>
-        <a-descriptions-item label="长宽">
-          <a-input-group>
-            <a-row :gutter="4">
-              <a-col :span="11">
-                <a-input
-                  type="number"
-                  :value="toolbox.widHgt[0]"
-                  @blur="(e: any) => onWidHgtChange(e, 0)"
-                >
-                  <template #suffix>px</template>
-                </a-input>
-              </a-col>
-              <a-col :span="2" class="text-center"><CloseOutlined /></a-col>
-              <a-col :span="11">
-                <a-input
-                  type="number"
-                  :value="toolbox.widHgt[1]"
-                  @blur="(e: any) => onWidHgtChange(e, 1)"
-                >
-                  <template #suffix>px</template>
-                </a-input>
-              </a-col>
-            </a-row>
-          </a-input-group>
-        </a-descriptions-item>
-        <a-descriptions-item label="显示元素ID">
-          <a-radio-group v-model:value="toolbox.showEleId">
-            <a-radio-button value="clazz">类名</a-radio-button>
-            <a-radio-button value="xpath">xpath</a-radio-button>
-            <a-radio-button value="none">不显示</a-radio-button>
-          </a-radio-group>
-        </a-descriptions-item>
-      </a-descriptions>
-      <a-form layout="inline" :model="toolbox">
-        <a-form-item label="长宽">
-          <a-input v-model:value="formState.fieldA" placeholder="input placeholder" />
-        </a-form-item>
-        <a-form-item label="显示元素ID">
-          <a-radio-group v-model:value="toolbox.showEleId">
-            <a-radio-button value="clazz">类名</a-radio-button>
-            <a-radio-button value="xpath">xpath</a-radio-button>
-            <a-radio-button value="none">不显示</a-radio-button>
-          </a-radio-group>
-        </a-form-item>
-      </a-form>
+      <div class="flex justify-center">
+        <a-form class="text-center" layout="inline" :model="toolbox">
+          <a-form-item label="长宽">
+            <a-select
+              class="w-40"
+              :options="Object.entries(toolbox.whDict).map(([value, label]) => ({ label, value }))"
+              v-model:value="toolbox.widHgt"
+            />
+          </a-form-item>
+          <a-form-item label="显示元素ID">
+            <a-radio-group v-model:value="toolbox.showEleId">
+              <a-radio-button value="clazz">类名</a-radio-button>
+              <a-radio-button value="xpath">xpath</a-radio-button>
+              <a-radio-button value="none">不显示</a-radio-button>
+            </a-radio-group>
+          </a-form-item>
+        </a-form>
+      </div>
     </a-layout-content>
     <FlexDivider
       orientation="vertical"

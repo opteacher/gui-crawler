@@ -16,6 +16,7 @@
     "codemirror": "^6.0.1",
     "codemirror-editor-vue3": "^2.8.0",
     "dayjs": "^1.11.13",
+    "electron-puppeteer": "^1.1.1",
     "happy-dom": "^17.4.4",
     "lodash": "^4.17.21",
     "paho-mqtt": "^1.1.0",
