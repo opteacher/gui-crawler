@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import ListTasks from './views/listTasks.vue'
+import EditCrawl from './views/editCrawl.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -10,6 +11,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/gui-crawler/task/s',
     name: 'ListTasks',
     component: ListTasks
+  },
+  {
+    path: '/gui-crawler/task/:tid/crawl/edit',
+    name: 'EditCrawl',
+    component: EditCrawl
   }
 ]
 

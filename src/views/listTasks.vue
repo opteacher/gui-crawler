@@ -6,12 +6,9 @@ import Mapper from '@lib/types/mapper'
 import { newOne, getProp } from '@lib/utils'
 import { onMounted, reactive } from 'vue'
 import tskAPI from '@/apis/task'
-import {
-  PlayCircleOutlined,
-  PauseCircleOutlined,
-  SyncOutlined
-} from '@ant-design/icons-vue'
+import { PlayCircleOutlined, PauseCircleOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { TinyEmitter } from 'tiny-emitter'
+import router from '@/router'
 
 const columns = reactive<Column[]>([
   new Column('名称', 'name'),
@@ -53,10 +50,12 @@ onMounted(() => {})
 async function onTaskStart(task: Task) {
   await tskAPI.start(task)
   emitter.emit('refresh')
+  emitter.emit('update:auto-refresh', { enable: true, interval: 5 })
 }
 async function onTaskStop(task: Task) {
   await tskAPI.stop(task)
   emitter.emit('refresh')
+  emitter.emit('update:auto-refresh', false)
 }
 </script>
 
@@ -112,6 +111,15 @@ async function onTaskStop(task: Task) {
       <a-button v-else size="small" type="link" @click="() => onTaskStart(record)">
         <template #icon><PlayCircleOutlined /></template>
         开始
+      </a-button>
+    </template>
+    <template #operaBefore="{ record }: any">
+      <a-button
+        size="small"
+        type="link"
+        @click="() => router.push(`/gui-crawler/task/${record.key}/crawl/edit`)"
+      >
+        设计流程
       </a-button>
     </template>
   </EditableTable>
