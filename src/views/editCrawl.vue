@@ -1,25 +1,28 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { DisconnectOutlined, CloseOutlined, RightOutlined } from '@ant-design/icons-vue'
-import FlexDivider from '@lib/components/FlexDivider.vue'
+import {
+  RightOutlined,
+  ArrowLeftOutlined
+} from '@ant-design/icons-vue'
 import { TinyEmitter } from 'tiny-emitter'
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
-import { reqGet, setProp, swchBoolProp } from '@lib/utils'
+import { setProp, swchBoolProp } from '@lib/utils'
 import _ from 'lodash'
 import PageEle from '@/types/pageEle'
-import { inRect } from '@/utils'
 import { Cond } from '@lib/types'
-import EleRect from '@/components/eleRect.vue'
-import EleTag from '@/components/eleTag.vue'
 import Schema from '@/types/schema'
 import EleSelWarp from '@/components/eleSelWrap.vue'
 import { WebviewTag } from 'electron'
-import electronPuppeteer from 'electron-puppeteer'
+import PgEleSelect from '@lib/components/PgEleSelect.vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const webView = ref<WebviewTag | null>(null)
-const webViewCtnr = ref<HTMLElement | null>(null)
-const urlForm = reactive({ url: 'https://www.jiuyangongshe.com/' })
+const urlForm = reactive({
+  url: 'https://www.jiuyangongshe.com/',
+  selKeys: []
+})
 const wvMask = reactive({
   left: 0,
   top: 0,
@@ -159,21 +162,6 @@ const sideBar = reactive({
     colcType: 'text' as 'text' | 'file'
   }
 })
-const toolbox = reactive({
-  widHgt: '1280x720',
-  whDict: ['800x600', '1024x768', '1280x720', '1920x1080', '2560x1440'],
-  showEleId: 'clazz' as 'clazz' | 'xpath' | 'none'
-})
-const topBar = reactive({
-  stepItems: [
-    { title: '基础配置', description: '配置基本的页面信息' },
-    { title: '采集配置', description: '配置要采集的内容' },
-    { title: '预览数据', description: '预览采集结果' },
-    { title: '保存任务', description: '保存当前爬虫任务' }
-  ],
-  curStep: 0
-})
-const curURL = ref('')
 
 onMounted(() => {
   // webView.value?.addEventListener('dom-ready', () => {
@@ -184,21 +172,6 @@ onMounted(() => {
 function onSbFormUpdate(fm: any) {
   Object.entries(fm).map(([k, v]) => setProp(sideBar.formState, k, v))
 }
-async function onWebviewLoaded() {
-  // const { elements, treeData, rectBox } = await reqGet('page/element', 's', {
-  //   project: 'login_platform',
-  //   type: 'api',
-  //   action: 'collect',
-  //   axiosConfig: {
-  //     params: { url: curURL.value, ...webView.value?.getBoundingClientRect() }
-  //   }
-  // })
-  // wvMask.elements = elements
-  // wvMask.treeData = treeData
-
-  // toolbox.widHgt = [rectBox.width || 1280, rectBox.height || 720].join('x')
-  console.log(webView.value?.getWebContentsId())
-}
 function onMouseMove(e: MouseEvent) {
   sideBar.lftEmitter.emit('mousemove', e)
   sideBar.rgtEmitter.emit('mousemove', e)
@@ -206,32 +179,6 @@ function onMouseMove(e: MouseEvent) {
 function onMouseUp() {
   sideBar.lftEmitter.emit('mouseup')
   sideBar.rgtEmitter.emit('mouseup')
-}
-function poiOnEle(x: number, y: number): PageEle | null {
-  const els = []
-  for (const el of wvMask.elements) {
-    if (inRect({ x, y }, el.rectBox)) {
-      els.push(el)
-    }
-  }
-  const minRect = {
-    width: Number.MAX_VALUE,
-    height: Number.MAX_VALUE,
-    el: null as PageEle | null
-  }
-  for (const el of els) {
-    if (el.rectBox.width < minRect.width && el.rectBox.height < minRect.height) {
-      minRect.el = el
-    }
-  }
-  return minRect.el
-}
-function onMosMovOnWebview(e: MouseEvent) {
-  e.preventDefault()
-  if (!sideBar.formState.idenEle) {
-    return
-  }
-  wvMask.hovEle = poiOnEle(e.offsetX + wvMask.left, e.offsetY + wvMask.top)
 }
 function onEleSelect(ele?: PageEle) {
   wvMask.selEle = ele || wvMask.hovEle
@@ -245,22 +192,6 @@ function onEleSelect(ele?: PageEle) {
 function onEleClrSel() {
   wvMask.selEle = null
   sideBar.formState.idenEle = ''
-}
-function onMainLytScroll(e: any) {
-  wvMask.top = (e.target as HTMLElement).scrollTop
-  wvMask.left = (e.target as HTMLElement).scrollLeft
-}
-function onWidHgtChange(e: FocusEvent, whIdx: 0 | 1) {
-  // toolbox.widHgt[whIdx] = parseInt((e.target as HTMLInputElement).value)
-}
-function onMaskScroll(e: WheelEvent) {
-  webViewCtnr.value?.scroll({ top: webViewCtnr.value?.scrollTop + e.deltaY, behavior: 'smooth' })
-}
-function onUrlClear(e: InputEvent) {
-  if (e.type === 'click') {
-    curURL.value = ''
-    wvMask.treeData = []
-  }
 }
 function onAddPropSbt() {
   sideBar.formState.schemas.push(
@@ -278,242 +209,86 @@ function onAddPropSbt() {
 
 <template>
   <a-layout class="w-full h-full overflow-hidden" @mousemove="onMouseMove" @mouseup="onMouseUp">
-    <a-layout-sider v-show="sideBar.leftVsb" :width="sideBar.leftWid" theme="light">
-      <div class="h-full flex flex-col">
-        <div class="flex-1 relative">
-          <a-tree
-            class="px-4 pt-4 overflow-auto absolute top-0 bottom-0 left-0 right-0"
-            :show-line="true"
-            :show-icon="false"
-            :tree-data="wvMask.treeData"
-          />
-        </div>
-        <a-divider v-if="wvMask.selEle" class="my-4" />
-        <a-descriptions
-          v-if="wvMask.selEle"
-          class="px-4 pb-4"
-          :column="1"
-          :title="'类名：' + wvMask.selEle.clazz"
-        >
-          <template #extra>
-            <a-button type="link" danger @click="onEleClrSel">
-              <template #icon><CloseOutlined /></template>
-            </a-button>
-          </template>
-          <a-descriptions-item label="xpath">{{ wvMask.selEle.xpath }}</a-descriptions-item>
-          <a-descriptions-item label="外框">{{ wvMask.selEle.rectBox }}</a-descriptions-item>
-        </a-descriptions>
-      </div>
-    </a-layout-sider>
-    <FlexDivider
-      orientation="vertical"
-      v-model:wid-hgt="sideBar.leftWid"
-      :emitter="sideBar.lftEmitter"
-      ctrl-side="leftTop"
-      bg-color="white"
-      hbtn-txt="页面节点树"
-      :hide-btn="true"
-      :hbtn-pos="{ bottom: '10px' }"
-      :is-hide="!sideBar.leftVsb"
-      @hbtn-click="() => swchBoolProp(sideBar, 'leftVsb')"
-    />
-    <a-layout-content class="p-4 flex flex-col space-y-4">
-      <a-input-group class="flex" compact>
-        <a-input
-          class="flex-1"
-          v-model:value="urlForm.url"
-          placeholder="http://127.0.0.1"
-          allowClear
-          @change="onUrlClear"
-        />
-        <a-button type="primary" @click="() => (curURL = urlForm.url)">跳转</a-button>
+    <a-layout-header class="bg-white inline-flex items-center space-x-3">
+      <a-button type="text" @click="() => router.back()">
+        <template #icon><ArrowLeftOutlined /></template>
+        返回任务列表
+      </a-button>
+      <a-input-group class="flex-1" size="large" compact>
+        <a-input v-model:value="urlForm.url" size="large" style="width: calc(100% - 200px)">
+          <template #prefix><RightOutlined /></template>
+        </a-input>
+        <a-button type="primary">跳转</a-button>
       </a-input-group>
-      <a-steps :current="topBar.curStep" :items="topBar.stepItems" />
-      <div v-if="curURL" class="flex-1 relative">
-        <div
-          ref="webViewCtnr"
-          class="overflow-auto absolute left-0 top-0 bottom-0 right-0"
-          @scroll="onMainLytScroll"
-        >
-          <webview
-            ref="webView"
-            class="border-none overflow-hidden w-full h-full"
-            :src="curURL"
-            nodeintegration
-            disablewebsecurity
-            allowpopups
-            webpreferences="allowRunningInsecureContent"
-            @did-finish-load="onWebviewLoaded"
-          />
-        </div>
-        <a-dropdown :trigger="['contextmenu']">
-          <div class="absolute top-0 left-0 bottom-4 right-4" @wheel="onMaskScroll">
-            <svg class="w-full h-full" @mousemove="onMosMovOnWebview">
-              <EleRect
-                v-if="wvMask.selEle"
-                :offset="[wvMask.left, wvMask.top]"
-                :element="wvMask.selEle"
-                :stk-wid="2"
-                :selable="false"
-              />
-              <EleRect
-                v-else-if="wvMask.hovEle"
-                :offset="[wvMask.left, wvMask.top]"
-                :element="wvMask.hovEle"
-                @ele-select="onEleSelect"
-              />
-            </svg>
-            <template v-if="toolbox.showEleId !== 'none'">
-              <EleTag
-                v-if="wvMask.selEle"
-                :offset="[wvMask.left, wvMask.top]"
-                :element="wvMask.selEle"
-                :ele-id="toolbox.showEleId"
-                @ele-cancel="onEleClrSel"
-              />
-              <EleTag
-                v-else-if="wvMask.hovEle"
-                :offset="[wvMask.left, wvMask.top]"
-                :element="wvMask.hovEle"
-                :ele-id="toolbox.showEleId"
-                :closable="false"
-                @ele-select="onEleSelect"
-              />
-            </template>
-          </div>
-          <template #overlay>
-            <a-menu>
-              <a-menu-item key="select">检查</a-menu-item>
-              <a-menu-item key="clear" @click="onEleClrSel">清空选择</a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
-      </div>
-      <div v-else class="flex-1 flex items-center justify-center">
-        <a-empty description="请输入网页链接并跳转后选择要爬取的内容">
-          <template #image>
-            <DisconnectOutlined class="text-8xl" />
-          </template>
-        </a-empty>
-      </div>
-      <div class="flex justify-center">
-        <a-form class="text-center" layout="inline" :model="toolbox">
-          <a-form-item label="长宽">
-            <a-select
-              class="w-40"
-              :options="Object.entries(toolbox.whDict).map(([value, label]) => ({ label, value }))"
-              v-model:value="toolbox.widHgt"
-            />
-          </a-form-item>
-          <a-form-item label="显示元素ID">
-            <a-radio-group v-model:value="toolbox.showEleId">
-              <a-radio-button value="clazz">类名</a-radio-button>
-              <a-radio-button value="xpath">xpath</a-radio-button>
-              <a-radio-button value="none">不显示</a-radio-button>
-            </a-radio-group>
-          </a-form-item>
-        </a-form>
-      </div>
-    </a-layout-content>
-    <FlexDivider
-      orientation="vertical"
-      v-model:wid-hgt="sideBar.rightWid"
-      :emitter="sideBar.rgtEmitter"
-      ctrl-side="rightBottom"
-      bg-color="white"
-      hbtn-txt="任务参数"
-      :hide-btn="true"
-      :is-hide="!sideBar.rightVsb"
-      :hbtn-pos="{ bottom: '10px' }"
-      @hbtn-click="() => swchBoolProp(sideBar, 'rightVsb')"
-    />
-    <a-layout-sider v-show="sideBar.rightVsb" class="p-4" :width="sideBar.rightWid" theme="light">
-      <div class="h-full relative">
-        <FormGroup
-          class="absolute top-0 left-0 right-0 bottom-0 overflow-auto pr-3"
-          :lblWid="7"
-          :mapper="sideBar.mapper"
-          :form="sideBar.formState"
-          @update:fprop="onSbFormUpdate"
-        >
-          <template #structure>
-            容器
-            <RightOutlined />
-            元素
-            <RightOutlined />
-            链接
-          </template>
-          <template #listCtnr>
-            <EleSelWarp
-              pname="listCtnr"
+    </a-layout-header>
+    <a-layout-content class="flex">
+      <PgEleSelect
+        :curURL="urlForm.url"
+        v-model:selKeys="urlForm.selKeys"
+        :sbar-wid="500"
+      >
+        <template #sideBottom>
+          <div class="flex-1 relative">
+            <FormGroup
+              class="absolute top-0 left-0 right-0 bottom-0 overflow-auto px-3"
+              :lblWid="7"
+              :mapper="sideBar.mapper"
               :form="sideBar.formState"
-              @ele-select="onEleSelect"
-              @ele-clear="onEleClrSel"
-            />
-          </template>
-          <template #listItem>
-            <EleSelWarp
-              pname="listItem"
-              :form="sideBar.formState"
-              @ele-select="onEleSelect"
-              @ele-clear="onEleClrSel"
-            />
-          </template>
-          <template #itemLink>
-            <EleSelWarp
-              pname="itemLink"
-              :form="sideBar.formState"
-              @ele-select="onEleSelect"
-              @ele-clear="onEleClrSel"
-            />
-          </template>
-          <template #bindEle>
-            <EleSelWarp
-              pname="bindEle"
-              :form="sideBar.formState"
-              @ele-select="onEleSelect"
-              @ele-clear="onEleClrSel"
-            />
-          </template>
-          <template #schemas>
-            <a-list size="small" bordered :data-source="sideBar.formState.schemas">
-              <template #renderItem="{ item }">
-                <a-list-item>{{ item }}</a-list-item>
+              @update:fprop="onSbFormUpdate"
+            >
+              <template #structure>
+                容器
+                <RightOutlined />
+                元素
+                <RightOutlined />
+                链接
               </template>
-            </a-list>
-            <a-card>
-              <a-card-grid class="w-1/2 text-center">Content</a-card-grid>
-            </a-card>
-          </template>
-          <template #widHgt>
-            <a-input-group>
-              <a-row :gutter="4">
-                <a-col :span="11">
-                  <a-input
-                    class="w-full"
-                    type="number"
-                    :value="toolbox.widHgt[0]"
-                    @blur="(e: any) => onWidHgtChange(e, 0)"
-                  >
-                    <template #suffix>px</template>
-                  </a-input>
-                </a-col>
-                <a-col :span="2" class="text-center"><CloseOutlined /></a-col>
-                <a-col :span="11">
-                  <a-input
-                    class="w-full"
-                    type="number"
-                    :value="toolbox.widHgt[1]"
-                    @blur="(e: any) => onWidHgtChange(e, 1)"
-                  >
-                    <template #suffix>px</template>
-                  </a-input>
-                </a-col>
-              </a-row>
-            </a-input-group>
-          </template>
-        </FormGroup>
-      </div>
-    </a-layout-sider>
+              <template #listCtnr>
+                <EleSelWarp
+                  pname="listCtnr"
+                  :form="sideBar.formState"
+                  @ele-select="onEleSelect"
+                  @ele-clear="onEleClrSel"
+                />
+              </template>
+              <template #listItem>
+                <EleSelWarp
+                  pname="listItem"
+                  :form="sideBar.formState"
+                  @ele-select="onEleSelect"
+                  @ele-clear="onEleClrSel"
+                />
+              </template>
+              <template #itemLink>
+                <EleSelWarp
+                  pname="itemLink"
+                  :form="sideBar.formState"
+                  @ele-select="onEleSelect"
+                  @ele-clear="onEleClrSel"
+                />
+              </template>
+              <template #bindEle>
+                <EleSelWarp
+                  pname="bindEle"
+                  :form="sideBar.formState"
+                  @ele-select="onEleSelect"
+                  @ele-clear="onEleClrSel"
+                />
+              </template>
+              <template #schemas>
+                <a-list size="small" bordered :data-source="sideBar.formState.schemas">
+                  <template #renderItem="{ item }">
+                    <a-list-item>{{ item }}</a-list-item>
+                  </template>
+                </a-list>
+                <a-card>
+                  <a-card-grid class="w-1/2 text-center">Content</a-card-grid>
+                </a-card>
+              </template>
+            </FormGroup>
+          </div>
+        </template>
+      </PgEleSelect>
+    </a-layout-content>
   </a-layout>
 </template>

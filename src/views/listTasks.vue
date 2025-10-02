@@ -117,7 +117,7 @@ async function onTaskStop(task: Task) {
       <a-button
         size="small"
         type="link"
-        @click="() => router.push(`/gui-crawler/task/${record.key}/crawl/edit`)"
+        @click="() => router.push(`/gui-crawler/task/${record.key}/oper/flow`)"
       >
         设计流程
       </a-button>
