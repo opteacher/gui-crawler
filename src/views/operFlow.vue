@@ -2,28 +2,44 @@
   <div class="w-full h-full flex flex-col overflow-hidden">
     <a-page-header :title="task.name" :sub-title="task.desc" @back="() => router.back()">
       <template #extra>
-        <a-input-group v-for="meta in task.metas" compact class="flex">
-          <a-button class="flex-1" @click="onMetaEdtClick">
+        <a-input-group v-for="meta in task.fkMeta as Meta[]" compact class="flex">
+          <a-button class="flex-1" @click="() => onMetaEdtClick(meta)">
             {{ meta.name }}
           </a-button>
           <a-button @click="() => onMetaDelClick(meta)">
             <template #icon><MinusOutlined /></template>
           </a-button>
         </a-input-group>
-        <a-button type="dashed" @click="onMetaEdtClick">
+        <a-button type="primary" @click="onMetaEdtClick">
           <template #icon><PlusOutlined /></template>
           添加元对象
         </a-button>
       </template>
       <FormDialog
         title="添加元对象"
+        width="40vw"
         :mapper="metaState.mapper"
         :emitter="metaState.emitter"
         :new-fun="() => newOne(Meta)"
         @submit="onMetaSave"
       />
     </a-page-header>
+    <template v-if="task.code">
+      <CodeEditor class="flex-1" :disabled="true" :value="task.code" />
+      <a-float-button
+        tooltip="显示流程"
+        shape="circle"
+        type="primary"
+        :style="{ right: '24px' }"
+        @click="() => (task.code = '')"
+      >
+        <template #icon>
+          <ClusterOutlined />
+        </template>
+      </a-float-button>
+    </template>
     <FlowDsgn
+      v-else
       :nodes="steps"
       :mapper="mapper"
       :emitter="emitter"
@@ -31,7 +47,21 @@
       :keygen-fun="onNewStepClick"
       @del:node="onDelStepSubmit"
       @update:nodes="onStepsUpdate"
-    />
+    >
+      <template #extToolBtns>
+        <a-float-button tooltip="显示代码" @click="onShowCodesClick">
+          <template #icon>
+            <CodeOutlined />
+          </template>
+        </a-float-button>
+      </template>
+      <template #moreMuItms="{ node }: any">
+        <a-menu-item key="preview" @click="() => onExecToStepClick(node)">
+          <template #icon><EyeOutlined /></template>
+          执行到该步骤
+        </a-menu-item>
+      </template>
+    </FlowDsgn>
   </div>
 </template>
 
@@ -49,10 +79,18 @@ import { newOne, pickOrIgnore } from '@lib/utils'
 import { Cond, typeOpns } from '@lib/types'
 import Column from '@lib/types/column'
 import Meta, { Mprop } from '@/types/meta'
-import { PlusOutlined, MinusOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import {
+  PlusOutlined,
+  MinusOutlined,
+  ExclamationCircleOutlined,
+  CodeOutlined,
+  ClusterOutlined,
+  EyeOutlined
+} from '@ant-design/icons-vue'
 import FormDialog from '@lib/components/FormDialog.vue'
-import { v4 as uuid } from 'uuid'
 import { Modal } from 'ant-design-vue'
+import CodeEditor from '@lib/components/CodeEditor.vue'
+import metaAPI from '@/apis/meta'
 
 const route = useRoute()
 const router = useRouter()
@@ -72,11 +110,15 @@ const mapper = new Mapper({
     type: 'Select',
     label: '类型',
     rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }],
-    options: Object.entries(stypes).map(([value, { label }]) => ({ value, label }))
+    options: Object.entries(stypes).map(([value, { label }]) => ({ value, label })),
+    disabled: {
+      OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '=', 0)]
+    }
   },
   extra: {
     type: 'FormGroup',
     label: '额外参数',
+    prefix: true,
     canFold: false,
     items: new Mapper({
       url: {
@@ -90,7 +132,7 @@ const mapper = new Mapper({
         label: '新页面打开',
         display: [Cond.create('stype', '=', 'goto')]
       },
-      colcTable: {
+      colcEles: {
         type: 'Table',
         label: '采集表',
         display: [Cond.create('stype', '=', 'collect')],
@@ -108,7 +150,8 @@ const mapper = new Mapper({
           ptype: {
             type: 'Select',
             label: '类型',
-            options: typeOpns
+            options: typeOpns,
+            rules: [{ required: true, message: '必须选择字段类型！', trigger: 'change' }]
           }
         }),
         columns: [
@@ -119,6 +162,12 @@ const mapper = new Mapper({
         newFun: () => newOne(Mprop)
       }
     })
+  },
+  preview: {
+    type: 'Button',
+    offset: 4,
+    inner: '执行到该步骤',
+    onClick: onExecToStepClick
   }
 })
 const emitter = new TinyEmitter()
@@ -129,6 +178,41 @@ const metaState = reactive({
       type: 'Input',
       label: '名称',
       rules: [{ required: true, message: '必须输入名称！' }]
+    },
+    label: {
+      type: 'Input',
+      label: '中文名'
+    },
+    desc: {
+      type: 'Textarea',
+      label: '描述'
+    },
+    propers: {
+      type: 'EditList',
+      label: '字段',
+      rules: [{ required: true, message: '必须填入至少一个字段！', type: 'array' }],
+      lblProp: 'name',
+      inline: false,
+      flatItem: false,
+      subProp: 'desc',
+      mapper: new Mapper({
+        name: {
+          type: 'Input',
+          label: '字段名（英）',
+          rules: [{ required: true, message: '必须输入字段名！' }]
+        },
+        desc: {
+          type: 'Input',
+          label: '说明（中）'
+        },
+        ptype: {
+          type: 'Select',
+          label: '类型',
+          options: typeOpns,
+          rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }]
+        }
+      }),
+      newFun: Mprop.copy
     }
   })
 })
@@ -152,8 +236,9 @@ async function onStepsUpdate(nstps: Step[]) {
   )
   await refresh()
 }
-function onMetaSave(form: Meta, next: Function) {
-  task.value.metas.push(Meta.copy({ ...form, key: uuid() }))
+async function onMetaSave(form: Meta, next: Function) {
+  const meta = await metaAPI(route.params.tid as string).add(form)
+  task.value.fkMeta.push(meta)
   next()
 }
 function onMetaEdtClick(meta?: Meta) {
@@ -163,12 +248,17 @@ function onMetaDelClick(meta: Meta) {
   Modal.confirm({
     title: `确定删除该元对象【${meta.name}】`,
     icon: createVNode(ExclamationCircleOutlined),
-    onOk() {
-      task.value.metas.splice(
-        task.value.metas.findIndex(m => m.key === meta.key),
-        1
-      )
+    async onOk() {
+      const metas = task.value.fkMeta as Meta[]
+      const [delMeta] = metas.splice(metas.findIndex(m => m.key === meta.key), 1)
+      await metaAPI(route.params.tid as string).remove(delMeta)
     }
   })
+}
+async function onShowCodesClick() {
+  task.value.code = await tskAPI.getCode(route.params.tid as string)
+}
+function onExecToStepClick(step: Step) {
+  router.push(`/gui-crawler/task/${route.params.tid as string}/step/${step.key}/edit`)
 }
 </script>

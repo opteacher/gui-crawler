@@ -36,7 +36,8 @@ export default class Task {
   interval: number
   perUnit: OpUnitType
   job?: Job
-  metas: Meta[]
+  code: string
+  fkMeta: (string | Meta)[]
 
   constructor() {
     this.key = ''
@@ -45,7 +46,8 @@ export default class Task {
     this.start = dayjs()
     this.interval = 0
     this.perUnit = 'seconds'
-    this.metas = []
+    this.code = ''
+    this.fkMeta = []
   }
 
   reset() {
@@ -56,10 +58,11 @@ export default class Task {
     this.interval = 0
     this.perUnit = 'seconds'
     this.job = undefined
-    this.metas = []
+    this.code = ''
+    this.fkMeta = []
   }
 
   static copy(src: any, tgt?: Task, force = false) {
-    return gnlCpy(Task, src, tgt, { force, cpyMapper: { job: Job.copy, metas: Meta.copy } })
+    return gnlCpy(Task, src, tgt, { force, cpyMapper: { job: Job.copy, fkMeta: Meta.copy } })
   }
 }

@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import ListTasks from './views/listTasks.vue'
-import EditCrawl from './views/editCrawl.vue'
+import EditStep from './views/editStep.vue'
 import OperFlow from './views/operFlow.vue'
 
 const routes: Array<RouteRecordRaw> = [
@@ -14,14 +14,14 @@ const routes: Array<RouteRecordRaw> = [
     component: ListTasks
   },
   {
-    path: '/gui-crawler/task/:tid/oper/flow',
+    path: '/gui-crawler/task/:tid/flow/oper',
     name: 'OperFlow',
     component: OperFlow
   },
   {
-    path: '/gui-crawler/task/:tid/crawl/edit',
-    name: 'EditCrawl',
-    component: EditCrawl
+    path: '/gui-crawler/task/:tid/step/:sid/edit',
+    name: 'EditStep',
+    component: EditStep
   }
 ]
 

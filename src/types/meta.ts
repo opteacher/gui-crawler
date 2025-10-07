@@ -4,17 +4,20 @@ import { gnlCpy } from '@lib/utils'
 export class Mprop {
   key: string
   name: string
+  desc: string
   ptype: BaseTypes
 
   constructor() {
     this.key = ''
     this.name = ''
+    this.desc = ''
     this.ptype = 'String'
   }
 
   reset() {
     this.key = ''
     this.name = ''
+    this.desc = ''
     this.ptype = 'String'
   }
 
@@ -26,18 +29,24 @@ export class Mprop {
 export default class Meta {
   key: string
   name: string
-  props: Mprop[]
+  label: string
+  desc: string
+  propers: Mprop[]
 
   constructor() {
     this.key = ''
     this.name = ''
-    this.props = []
+    this.label = ''
+    this.desc = ''
+    this.propers = []
   }
 
   reset() {
     this.key = ''
     this.name = ''
-    this.props = []
+    this.label = ''
+    this.desc = ''
+    this.propers = []
   }
 
   static copy(src: any, tgt?: Meta, force = false) {
