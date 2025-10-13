@@ -1,5 +1,5 @@
 import router from '@/router'
-import Meta from '@/types/meta'
+import Meta from '@/types/metaObj'
 import { reqDelete, reqLink, reqPost, reqPut } from '@lib/utils'
 
 export default (tid = router.currentRoute.value.params.tid) => ({

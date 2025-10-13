@@ -2,7 +2,7 @@
   <div class="w-full h-full flex flex-col overflow-hidden">
     <a-page-header :title="task.name" :sub-title="task.desc" @back="() => router.back()">
       <template #extra>
-        <a-input-group v-for="meta in task.fkMeta as Meta[]" compact class="flex">
+        <a-input-group v-for="meta in task.fkMetaobjs as MetaObj[]" compact class="flex">
           <a-button class="flex-1" @click="() => onMetaEdtClick(meta)">
             {{ meta.name }}
           </a-button>
@@ -20,7 +20,7 @@
         width="40vw"
         :mapper="metaState.mapper"
         :emitter="metaState.emitter"
-        :new-fun="() => newOne(Meta)"
+        :new-fun="() => newOne(MetaObj)"
         @submit="onMetaSave"
       />
     </a-page-header>
@@ -57,7 +57,7 @@
       </template>
       <template #moreMuItms="{ node }: any">
         <a-menu-item key="preview" @click="() => onExecToStepClick(node)">
-          <template #icon><EyeOutlined /></template>
+          <template #icon><PlayCircleOutlined /></template>
           执行到该步骤
         </a-menu-item>
       </template>
@@ -78,14 +78,14 @@ import { TinyEmitter } from 'tiny-emitter'
 import { newOne, pickOrIgnore } from '@lib/utils'
 import { Cond, typeOpns } from '@lib/types'
 import Column from '@lib/types/column'
-import Meta, { Mprop } from '@/types/meta'
+import MetaObj, { Mprop } from '@/types/metaObj'
 import {
   PlusOutlined,
   MinusOutlined,
   ExclamationCircleOutlined,
   CodeOutlined,
   ClusterOutlined,
-  EyeOutlined
+  PlayCircleOutlined
 } from '@ant-design/icons-vue'
 import FormDialog from '@lib/components/FormDialog.vue'
 import { Modal } from 'ant-design-vue'
@@ -131,6 +131,14 @@ const mapper = new Mapper({
         type: 'Switch',
         label: '新页面打开',
         display: [Cond.create('stype', '=', 'goto')]
+      },
+      colcCtnr: {
+        type: 'Input',
+        label: '采集容器'
+      },
+      colcItem: {
+        type: 'Input',
+        label: '采集项'
       },
       colcEles: {
         type: 'Table',
@@ -236,20 +244,20 @@ async function onStepsUpdate(nstps: Step[]) {
   )
   await refresh()
 }
-async function onMetaSave(form: Meta, next: Function) {
+async function onMetaSave(form: MetaObj, next: Function) {
   const meta = await metaAPI(route.params.tid as string).add(form)
-  task.value.fkMeta.push(meta)
+  task.value.fkMetaobjs.push(meta)
   next()
 }
-function onMetaEdtClick(meta?: Meta) {
+function onMetaEdtClick(meta?: MetaObj) {
   metaState.emitter.emit('update:visible', { show: true, object: meta })
 }
-function onMetaDelClick(meta: Meta) {
+function onMetaDelClick(meta: MetaObj) {
   Modal.confirm({
     title: `确定删除该元对象【${meta.name}】`,
     icon: createVNode(ExclamationCircleOutlined),
     async onOk() {
-      const metas = task.value.fkMeta as Meta[]
+      const metas = task.value.fkMetaobjs as MetaObj[]
       const [delMeta] = metas.splice(metas.findIndex(m => m.key === meta.key), 1)
       await metaAPI(route.params.tid as string).remove(delMeta)
     }

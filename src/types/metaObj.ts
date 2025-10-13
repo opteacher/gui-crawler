@@ -26,7 +26,7 @@ export class Mprop {
   }
 }
 
-export default class Meta {
+export default class MetaObj {
   key: string
   name: string
   label: string
@@ -49,7 +49,7 @@ export default class Meta {
     this.propers = []
   }
 
-  static copy(src: any, tgt?: Meta, force = false) {
-    return gnlCpy(Meta, src, tgt, { force, cpyMapper: { props: Mprop.copy } })
+  static copy(src: any, tgt?: MetaObj, force = false) {
+    return gnlCpy(MetaObj, src, tgt, { force, cpyMapper: { props: Mprop.copy } })
   }
 }

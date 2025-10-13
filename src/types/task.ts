@@ -1,6 +1,6 @@
 import { gnlCpy } from '@lib/utils'
 import dayjs, { Dayjs, OpUnitType } from 'dayjs'
-import Meta from './meta'
+import MetaObj from './metaObj'
 
 export const units = {
   years: '年',
@@ -37,7 +37,7 @@ export default class Task {
   perUnit: OpUnitType
   job?: Job
   code: string
-  fkMeta: (string | Meta)[]
+  fkMetaobjs: (string | MetaObj)[]
 
   constructor() {
     this.key = ''
@@ -47,7 +47,7 @@ export default class Task {
     this.interval = 0
     this.perUnit = 'seconds'
     this.code = ''
-    this.fkMeta = []
+    this.fkMetaobjs = []
   }
 
   reset() {
@@ -59,10 +59,10 @@ export default class Task {
     this.perUnit = 'seconds'
     this.job = undefined
     this.code = ''
-    this.fkMeta = []
+    this.fkMetaobjs = []
   }
 
   static copy(src: any, tgt?: Task, force = false) {
-    return gnlCpy(Task, src, tgt, { force, cpyMapper: { job: Job.copy, fkMeta: Meta.copy } })
+    return gnlCpy(Task, src, tgt, { force, cpyMapper: { job: Job.copy, fkMetaobjs: MetaObj.copy } })
   }
 }

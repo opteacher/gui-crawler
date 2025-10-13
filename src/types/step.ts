@@ -2,7 +2,6 @@ import Node from '@lib/types/node'
 import { gnlCpy } from '@lib/utils'
 import Task from './task'
 import * as antdIcon from '@ant-design/icons-vue'
-import { Mprop } from './meta'
 
 export const stypes = {
   goto: { label: '页面跳转', color: '#1677ff', icon: 'SendOutlined' },
@@ -33,7 +32,7 @@ export default class Step extends Node {
     tgt = gnlCpy(Step, src, tgt, {
       force,
       baseCpy: Node.copy,
-      cpyMapper: { fkTask: Task.copy, colcEles: Mprop.copy }
+      cpyMapper: { fkTask: Task.copy }
     })
     tgt.color = stypes[tgt.stype].color
     tgt.icon = stypes[tgt.stype].icon as keyof typeof antdIcon
