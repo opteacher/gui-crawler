@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import type PageEle from '@/types/pageEle'
+import type PageEle from '@lib/types/pageEle'
 import { CloseOutlined } from '@ant-design/icons-vue'
 import { type PropType } from 'vue'
 

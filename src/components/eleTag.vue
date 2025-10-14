@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import PageEle from '@/types/pageEle'
+import PageEle from '@lib/types/pageEle'
 import { PropType } from 'vue'
 import { getProp } from '@lib/utils'
 

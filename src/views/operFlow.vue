@@ -55,7 +55,7 @@
           </template>
         </a-float-button>
       </template>
-      <template #moreMuItms="{ node }: any">
+      <template #nodeCard_moreMuItms="{ node }: any">
         <a-menu-item key="preview" @click="() => onExecToStepClick(node)">
           <template #icon><PlayCircleOutlined /></template>
           执行到该步骤
@@ -88,7 +88,7 @@ import {
   PlayCircleOutlined
 } from '@ant-design/icons-vue'
 import FormDialog from '@lib/components/FormDialog.vue'
-import { Modal } from 'ant-design-vue'
+import { Modal, notification } from 'ant-design-vue'
 import CodeEditor from '@lib/components/CodeEditor.vue'
 import metaAPI from '@/apis/meta'
 
@@ -133,12 +133,20 @@ const mapper = new Mapper({
         display: [Cond.create('stype', '=', 'goto')]
       },
       colcCtnr: {
-        type: 'Input',
-        label: '采集容器'
+        type: 'Button',
+        inner: '选择元素',
+        label: '采集容器',
+        placeholder: '将跳转到页面选择元素',
+        display: [Cond.create('stype', '=', 'collect')],
+        onClick: onExecToStepClick
       },
       colcItem: {
-        type: 'Input',
-        label: '采集项'
+        type: 'Button',
+        inner: '选择元素',
+        label: '采集项',
+        placeholder: '将跳转到页面选择元素',
+        display: [Cond.create('stype', '=', 'collect')],
+        onClick: onExecToStepClick
       },
       colcEles: {
         type: 'Table',
@@ -258,7 +266,10 @@ function onMetaDelClick(meta: MetaObj) {
     icon: createVNode(ExclamationCircleOutlined),
     async onOk() {
       const metas = task.value.fkMetaobjs as MetaObj[]
-      const [delMeta] = metas.splice(metas.findIndex(m => m.key === meta.key), 1)
+      const [delMeta] = metas.splice(
+        metas.findIndex(m => m.key === meta.key),
+        1
+      )
       await metaAPI(route.params.tid as string).remove(delMeta)
     }
   })
@@ -267,6 +278,12 @@ async function onShowCodesClick() {
   task.value.code = await tskAPI.getCode(route.params.tid as string)
 }
 function onExecToStepClick(step: Step) {
-  router.push(`/gui-crawler/task/${route.params.tid as string}/step/${step.key}/edit`)
+  const tskKey = route.params.tid as string
+  const stpKey = step.key || step.previous[0]
+  if (!stpKey) {
+    notification.error({ message: '无法跳转到该步骤！' })
+    return
+  }
+  router.push(`/gui-crawler/task/${tskKey}/step/${stpKey}/edit`)
 }
 </script>

@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import type PageEle from '@/types/pageEle'
+import type PageEle from '@lib/types/pageEle'
 import EleSelector from './eleSelector.vue'
 
 const props = defineProps({
