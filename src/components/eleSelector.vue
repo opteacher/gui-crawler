@@ -1,7 +1,7 @@
 <template>
   <a-input-group v-if="element" class="w-full flex" compact>
     <a-button class="flex-1" @click="() => emit('ele-select', element)">
-      {{ element.clazz }}
+      {{ element.idCls }}
     </a-button>
     <a-button @click="() => emit('ele-clear')">
       <template #icon><CloseOutlined /></template>

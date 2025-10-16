@@ -22,7 +22,7 @@ import { getProp } from '@lib/utils'
 defineProps({
   element: { type: Object as PropType<PageEle>, required: true },
   offset: { type: Array as PropType<number[]>, default: () => [0, 0] },
-  eleId: { type: String as PropType<'clazz' | 'xpath' | 'none'>, default: 'clazz' },
+  eleId: { type: String as PropType<'idCls' | 'xpath' | 'none'>, default: 'idCls' },
   closable: { type: Boolean, default: true }
 })
 const emit = defineEmits(['ele-cancel', 'ele-select'])

@@ -1,10 +1,7 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
-import { createRequire } from 'node:module'
+import { app, BrowserWindow } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import colcEles from './colcEles'
 
-const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // The built directory structure
@@ -51,8 +48,6 @@ function createWindow() {
     // win.loadFile('dist/index.html')
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
-
-  ipcMain.handle('collect-elements', colcEles)
 }
 
 app.commandLine.appendSwitch('--ignore-certificate-errors', 'true')
