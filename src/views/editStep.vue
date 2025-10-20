@@ -1,106 +1,86 @@
 <template>
-  <a-layout class="w-full h-full overflow-hidden">
-    <a-layout-header class="bg-white inline-flex items-center space-x-3">
-      <a-button type="text" @click="() => router.back()">
-        <template #icon><ArrowLeftOutlined /></template>
-        返回流程设计
-      </a-button>
-      <a-input-group class="flex-1" size="large" compact>
-        <a-input
-          :disabled="loading"
-          v-model:value="urlForm.url"
-          size="large"
-          style="width: calc(100% - 200px)"
-        >
-          <template #prefix><RightOutlined /></template>
-        </a-input>
-        <a-button :loading="loading" type="primary">跳转</a-button>
-      </a-input-group>
-    </a-layout-header>
-    <a-layout-content class="flex">
-      <PgEleSelect
-        ref="pgElSelRef"
-        :curURL="urlForm.url"
-        v-model:selKeys="urlForm.selKeys"
-        v-model:loading="loading"
-        :sbar-wid="500"
-        :emitter="emitter"
-        @update:sel-keys="onEleSelect"
-      >
-        <template #sideBottom>
-          <FormGroup :disabled="loading" class="p-5" :mapper="mapper" :form="form">
-            <template #colcItem>
-              <EleSelWrap pname="colcItem" :form="form.colcItem" />
-            </template>
-          </FormGroup>
-        </template>
-      </PgEleSelect>
-    </a-layout-content>
-  </a-layout>
+  <div class="h-full flex flex-col">
+    <a-page-header :title="task?.name" :sub-title="task?.desc" @back="() => router.back()" />
+    <PgEleSelect
+      class="flex-1"
+      ref="pgElSelRef"
+      :curURL="url"
+      v-model:loading="loading"
+      :sbar-wid="500"
+      :emitter="emitter"
+      @update:sel-ele="onEleSelect"
+      @update:el-id-type="onEleIdenChange"
+    >
+      <template #sideBottom>
+        <FormGroup :disabled="loading" class="p-5" :mapper="mapper" :form="curStep?.extra">
+          <template v-if="curStep?.stype === 'collect'" #colcCtnr>
+            <a-button
+              v-if="!curStep.extra.colcCtnr || !curStep.extra.colcCtnr.iden"
+              class="w-full"
+              :type="selProp === 'colcCtnr' ? 'primary' : 'default'"
+              @click="() => onSelElClick('colcCtnr')"
+            >
+              选择元素
+            </a-button>
+            <a-input-group v-else compact class="flex">
+              <a-button type="primary" ghost class="flex-1 truncate">
+                {{ curStep.extra.colcCtnr.iden }}
+              </a-button>
+              <a-button type="primary" ghost danger @click="() => onBinEleClear('colcCtnr')">
+                <template #icon><CloseOutlined /></template>
+              </a-button>
+            </a-input-group>
+          </template>
+          <template v-if="curStep?.stype === 'collect'" #colcItem>
+            <a-button
+              v-if="!curStep.extra.colcItem || !curStep.extra.colcItem.iden"
+              class="w-full"
+              :type="selProp === 'colcItem' ? 'primary' : 'default'"
+              @click="() => onSelElClick('colcItem')"
+            >
+              选择元素
+            </a-button>
+            <a-input-group v-else compact class="flex">
+              <a-button type="primary" ghost class="flex-1 truncate">
+                {{ curStep.extra.colcItem.iden }}
+              </a-button>
+              <a-button type="primary" ghost danger @click="() => onBinEleClear('colcItem')">
+                <template #icon><CloseOutlined /></template>
+              </a-button>
+            </a-input-group>
+          </template>
+        </FormGroup>
+      </template>
+    </PgEleSelect>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
-import { RightOutlined, ArrowLeftOutlined } from '@ant-design/icons-vue'
+import { computed, onMounted, ref } from 'vue'
 import PgEleSelect from '@lib/components/PgEleSelect.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
-import Step, { CollectExtra } from '@/types/step'
+import Step, { mapperDict } from '@/types/step'
 import stpAPI from '@/apis/step'
 import FormGroup from '@lib/components/FormGroup.vue'
-import Mapper, { ButtonMapper } from '@lib/types/mapper'
-import EleSelWrap from '@/components/eleSelWrap.vue'
+import Mapper from '@lib/types/mapper'
 import { TinyEmitter } from 'tiny-emitter'
-import { setProp } from '@lib/utils'
+import { getProp, setProp, swchBoolProp } from '@lib/utils'
+import PageEle from '@lib/types/pageEle'
+import { CloseOutlined } from '@ant-design/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
-const urlForm = reactive({
-  url: '',
-  selKeys: []
-})
+const url = ref('')
 const pgElSelRef = ref()
 const task = ref<Task>()
 const stpDict = ref<Record<string, Step>>({})
-const mapper = reactive(
-  new Mapper({
-    colcCtnr: {
-      type: 'Buttons',
-      label: '容器',
-      buttons: [
-        {
-          ...new ButtonMapper(),
-          inner: '选择元素',
-          onClick: () => {
-            emitter.emit('sel-ele')
-            setProp(mapper, 'colcCtnr.buttons[0].ghost', false)
-          }
-        },
-        {
-          ...new ButtonMapper(),
-          icon: 'MinusCircleOutlined',
-          danger: true,
-          fullWid: false,
-          onClick: () => {
-            form.colcCtnr.reset()
-          }
-        }
-      ]
-    },
-    colcItem: {
-      type: 'Unknown',
-      label: '项'
-    },
-    colcEles: {
-      type: 'Table',
-      label: '映射'
-    }
-  })
-)
-const form = reactive(new CollectExtra())
+const mapper = ref<Mapper>(new Mapper({}))
 const emitter = new TinyEmitter()
 const loading = ref(false)
+const curStep = computed<Step | undefined>(() => getProp(stpDict.value, route.params.sid as string))
+const selProp = ref<string>('')
 
 onMounted(refresh)
 
@@ -111,24 +91,58 @@ async function refresh() {
   const steps = await stpAPI.all({ axiosConfig: { params: { fkTask: tskKey } } })
   stpDict.value = Object.fromEntries(steps.map(s => [s.key, s] as const))
   const stpKey = route.params.sid as string
-  if (steps.length) {
-    let step = steps[0]
-    do {
-      switch (step.stype) {
-        case 'goto':
-          urlForm.url = step?.extra.url
-          break
-        case 'collect':
-          break
-      }
-      if (!step.nexts.length) {
+  if (!steps.length) {
+    return
+  }
+  for (let i = 0; i < steps.length; ++i) {
+    const step = steps[i]
+    if (i !== 0 && step.key === stpKey) {
+      break
+    }
+    switch (step.stype) {
+      case 'goto':
+        url.value = step?.extra.url
         break
-      }
-      step = stpDict.value[step.nexts[0]]
-    } while (step.key !== stpKey)
+      case 'opera':
+        break
+    }
+  }
+  const step = stpDict.value[stpKey]
+  const stpMapper = mapperDict[step.stype]()
+  setProp(stpMapper, 'colcCtnr.onClick', () => onSelElClick('colcCtnr'))
+  setProp(stpMapper, 'colcItem.onClick', () => onSelElClick('colcItem'))
+  mapper.value = new Mapper({
+    ...stpMapper,
+    execute: {
+      type: 'Button',
+      offset: 4,
+      inner: '预览该步骤',
+      fullWid: true,
+      ghost: false
+    }
+  })
+}
+function onEleSelect(selEle?: PageEle) {
+  if (selEle && selProp.value && curStep.value && curStep.value.stype === 'collect') {
+    setProp(stpDict.value, `${route.params.sid}.extra.${selProp.value}`, selEle)
+    setProp(mapper.value, `${selProp.value}.inner`, selEle.iden)
+    setProp(mapper.value, `${selProp.value}.ghost`, true)
+    selProp.value = ''
   }
 }
-function onEleSelect() {
-  setProp(mapper, 'colcCtnr.buttons[0].ghost', true)
+function onEleIdenChange(idType: 'xpath' | 'idCls' | 'tagName') {
+  if (selProp.value && curStep.value && curStep.value.stype === 'collect') {
+    setProp(stpDict.value, `${route.params.sid}.extra.${selProp}.idType`, idType)
+    setProp(mapper.value, `${selProp.value}.inner`, getProp(curStep.value, `extra.${selProp}`))
+  }
+}
+function onSelElClick(prop: string) {
+  emitter.emit('sel-ele')
+  swchBoolProp(mapper.value, `${prop}.ghost`)
+  selProp.value = selProp.value ? '' : prop
+}
+function onBinEleClear(prop: string) {
+  getProp(stpDict.value, `${route.params.sid}.extra.${prop}`)?.reset()
+  emitter.emit('clr-ele')
 }
 </script>

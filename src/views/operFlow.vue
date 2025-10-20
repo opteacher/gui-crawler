@@ -47,6 +47,7 @@
       :keygen-fun="onNewStepClick"
       @del:node="onDelStepSubmit"
       @update:nodes="onStepsUpdate"
+      @click:node="({ stype }: Step) => emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[stype]()) })"
     >
       <template #extToolBtns>
         <a-float-button tooltip="显示代码" @click="onShowCodesClick">
@@ -70,14 +71,13 @@ import { useRoute, useRouter } from 'vue-router'
 import FlowDsgn from '@lib/components/FlowDsgn.vue'
 import { createVNode, onMounted, reactive, ref } from 'vue'
 import Mapper from '@lib/types/mapper'
-import Step, { stypes } from '@/types/step'
+import Step, { mapperDict, stypes } from '@/types/step'
 import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
 import { TinyEmitter } from 'tiny-emitter'
 import { newOne, pickOrIgnore } from '@lib/utils'
 import { Cond, typeOpns } from '@lib/types'
-import Column from '@lib/types/column'
 import MetaObj, { Mprop } from '@/types/metaObj'
 import {
   PlusOutlined,
@@ -120,64 +120,7 @@ const mapper = new Mapper({
     label: '额外参数',
     prefix: true,
     canFold: false,
-    items: new Mapper({
-      url: {
-        type: 'Input',
-        label: '地址',
-        rules: [{ required: true, message: '必须输入网站地址！' }],
-        display: [Cond.create('stype', '=', 'goto')]
-      },
-      newPage: {
-        type: 'Switch',
-        label: '新页面打开',
-        display: [Cond.create('stype', '=', 'goto')]
-      },
-      colcCtnr: {
-        type: 'Button',
-        inner: '选择元素',
-        label: '采集容器',
-        placeholder: '将跳转到页面选择元素',
-        display: [Cond.create('stype', '=', 'collect')],
-        onClick: onExecToStepClick
-      },
-      colcItem: {
-        type: 'Button',
-        inner: '选择元素',
-        label: '采集项',
-        placeholder: '将跳转到页面选择元素',
-        display: [Cond.create('stype', '=', 'collect')],
-        onClick: onExecToStepClick
-      },
-      colcEles: {
-        type: 'Table',
-        label: '采集表',
-        display: [Cond.create('stype', '=', 'collect')],
-        mapper: new Mapper({
-          key: {
-            type: 'Input',
-            label: '字段名',
-            rules: [{ required: true, message: '必须输入字段名！' }]
-          },
-          name: {
-            type: 'Input',
-            label: '中文名',
-            rules: [{ required: true, message: '必须输入中文名！' }]
-          },
-          ptype: {
-            type: 'Select',
-            label: '类型',
-            options: typeOpns,
-            rules: [{ required: true, message: '必须选择字段类型！', trigger: 'change' }]
-          }
-        }),
-        columns: [
-          new Column('字段名', 'key'),
-          new Column('中文名', 'name'),
-          new Column('类型', 'ptype')
-        ],
-        newFun: () => newOne(Mprop)
-      }
-    })
+    vwOnly: true
   },
   preview: {
     type: 'Button',

@@ -1,9 +1,13 @@
 import Node from '@lib/types/node'
-import { gnlCpy } from '@lib/utils'
+import { gnlCpy, newOne } from '@lib/utils'
 import Task from './task'
 import * as antdIcon from '@ant-design/icons-vue'
 import ColcItem from './colcItem'
 import PageEle from '@lib/types/pageEle'
+import { Cond, typeOpns } from '@lib/types'
+import Mapper from '@lib/types/mapper'
+import Column from '@lib/types/column'
+import { Mprop } from './metaObj'
 
 export const stypes = {
   goto: { label: '页面跳转', color: '#1677ff', icon: 'SendOutlined' },
@@ -84,4 +88,61 @@ export class CollectExtra {
       cpyMapper: { colcCtnr: PageEle.copy, colcItem: PageEle.copy, colcEles: ColcItem.copy }
     })
   }
+}
+
+export const mapperDict = {
+  goto: () => ({
+    url: {
+      type: 'Input',
+      label: '地址',
+      rules: [{ required: true, message: '必须输入网站地址！' }]
+    },
+    newPage: {
+      type: 'Switch',
+      label: '新页面打开'
+    }
+  }),
+  collect: () => ({
+    colcCtnr: {
+      type: 'Button',
+      inner: '选择元素',
+      label: '采集容器',
+      placeholder: '将跳转到页面选择元素'
+    },
+    colcItem: {
+      type: 'Button',
+      inner: '选择元素',
+      label: '采集项',
+      placeholder: '将跳转到页面选择元素'
+    },
+    colcEles: {
+      type: 'Table',
+      label: '采集表',
+      mapper: new Mapper({
+        key: {
+          type: 'Input',
+          label: '字段名',
+          rules: [{ required: true, message: '必须输入字段名！' }]
+        },
+        name: {
+          type: 'Input',
+          label: '中文名',
+          rules: [{ required: true, message: '必须输入中文名！' }]
+        },
+        ptype: {
+          type: 'Select',
+          label: '类型',
+          options: typeOpns,
+          rules: [{ required: true, message: '必须选择字段类型！', trigger: 'change' }]
+        }
+      }),
+      columns: [
+        new Column('字段名', 'key'),
+        new Column('中文名', 'name'),
+        new Column('类型', 'ptype')
+      ],
+      newFun: () => newOne(Mprop)
+    }
+  }),
+  opera: () => ({})
 }
