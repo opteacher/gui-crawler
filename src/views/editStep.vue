@@ -6,6 +6,7 @@
       ref="pgElSelRef"
       :curURL="url"
       v-model:loading="loading"
+      :hl-eles="hlEles"
       :sbar-wid="500"
       :emitter="emitter"
       @update:sel-ele="onEleSelect"
@@ -32,6 +33,9 @@
               @ele-iden-change="onElIdChange"
             />
           </template>
+          <template v-if="curStep?.stype === 'collect'" #colcEles>
+            <EleColcField :emitter="emitter" :meta-objs="metaObjs" />
+          </template>
         </FormGroup>
       </template>
     </PgEleSelect>
@@ -49,9 +53,11 @@ import stpAPI from '@/apis/step'
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
 import { TinyEmitter } from 'tiny-emitter'
-import { getProp, pickOrIgnore, setProp, swchBoolProp } from '@lib/utils'
+import { getProp, pickOrIgnore, setProp } from '@lib/utils'
 import PageEle from '@lib/types/pageEle'
 import EleSelField from '@/components/eleSelField.vue'
+import EleColcField from '@/components/eleColcField.vue'
+import MetaObj from '@/types/metaObj'
 
 const route = useRoute()
 const router = useRouter()
@@ -64,6 +70,13 @@ const emitter = new TinyEmitter()
 const loading = ref(false)
 const curStep = computed<Step | undefined>(() => getProp(stpDict.value, route.params.sid as string))
 const selProp = ref<string>('')
+const hlEles = computed(() =>
+  [
+    getProp(curStep.value, 'extra.colcCtnr.xpath'),
+    getProp(curStep.value, 'extra.colcItem.xpath')
+  ].filter(v => v)
+)
+const metaObjs = computed(() => task.value?.fkMetaobjs as MetaObj[])
 
 onMounted(refresh)
 
@@ -106,20 +119,25 @@ async function refresh() {
   })
 }
 async function onEleSelect(selEle?: PageEle) {
-  if (selEle && selProp.value && curStep.value && curStep.value.stype === 'collect') {
-    if (!route.params.sid) {
-      return
-    }
-    const sid = route.params.sid as string
-    setProp(stpDict.value, `${sid}.extra.${selProp.value}`, selEle)
-    await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
-    setProp(mapper.value, `${selProp.value}.ghost`, true)
-    selProp.value = ''
+  switch (true) {
+    case curStep.value && curStep.value.stype === 'collect':
+      if (selEle) {
+        if (selProp.value) {
+          if (!route.params.sid) {
+            return
+          }
+          const sid = route.params.sid as string
+          setProp(stpDict.value, `${sid}.extra.${selProp.value}`, selEle)
+          await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
+          selProp.value = ''
+        }
+        emitter.emit('ele-selected', selEle)
+      }
+      break
   }
 }
 function onSelElStart(prop: string) {
   emitter.emit('sel-ele')
-  swchBoolProp(mapper.value, `${prop}.ghost`)
   selProp.value = selProp.value ? '' : prop
 }
 async function onSelElClear(prop: string) {
@@ -131,12 +149,12 @@ async function onSelElClear(prop: string) {
   await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
   emitter.emit('clr-ele')
 }
-async function onElIdChange(iden: string) {
+async function onElIdChange(prop: string, iden: string) {
   if (!route.params.sid) {
     return
   }
   const sid = route.params.sid as string
-  setProp(stpDict.value, `${sid}.extra.${selProp.value}.idType`, iden)
+  setProp(stpDict.value, `${sid}.extra.${prop}.idType`, iden)
   await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
 }
 </script>

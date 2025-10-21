@@ -2,27 +2,39 @@ import PageEle from '@lib/types/pageEle'
 import MetaObj from './metaObj'
 import { gnlCpy } from '@lib/utils'
 
+export const ctypes = {
+  text: '文本',
+  file: '文件',
+  picture: '图片'
+}
+
 export default class ColcItem {
   key: string
-  itemEle: PageEle
+  element: PageEle
+  ctype: keyof typeof ctypes
   fkMetaobj: string | MetaObj
+  proper: string
 
   constructor() {
     this.key = ''
-    this.itemEle = new PageEle()
+    this.element = new PageEle()
+    this.ctype = 'text'
     this.fkMetaobj = ''
+    this.proper = ''
   }
 
   reset() {
     this.key = ''
-    this.itemEle = new PageEle()
+    this.element.reset()
+    this.ctype = 'text'
     this.fkMetaobj = ''
+    this.proper = ''
   }
 
   static copy(src: any, tgt?: ColcItem, force = false) {
     return gnlCpy(ColcItem, src, tgt, {
       force,
-      cpyMapper: { itemEle: PageEle.copy, fkMetaobj: MetaObj.copy }
+      cpyMapper: { element: PageEle.copy, fkMetaobj: MetaObj.copy }
     })
   }
 }

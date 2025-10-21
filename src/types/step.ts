@@ -1,50 +1,12 @@
 import Node from '@lib/types/node'
-import { gnlCpy, newOne } from '@lib/utils'
+import { getProp, gnlCpy, newOne } from '@lib/utils'
 import Task from './task'
 import * as antdIcon from '@ant-design/icons-vue'
-import ColcItem from './colcItem'
+import ColcItem, { ctypes } from './colcItem'
 import PageEle from '@lib/types/pageEle'
-import { Cond, typeOpns } from '@lib/types'
 import Mapper from '@lib/types/mapper'
 import Column from '@lib/types/column'
-import { Mprop } from './metaObj'
-
-export const stypes = {
-  goto: { label: '页面跳转', color: '#1677ff', icon: 'SendOutlined' },
-  collect: { label: '元素采集', color: '#faad14', icon: 'HighlightOutlined' },
-  opera: { label: '页面操作', color: '#52c41a', icon: 'SelectOutlined' }
-}
-
-export default class Step extends Node {
-  stype: keyof typeof stypes
-  extra: any
-  fkTask: string | Task
-
-  constructor() {
-    super()
-    this.stype = 'goto'
-    this.extra = {}
-    this.fkTask = ''
-  }
-
-  reset() {
-    super.reset()
-    this.stype = 'goto'
-    this.extra = {}
-    this.fkTask = ''
-  }
-
-  static copy(src: any, tgt?: Step, force = false) {
-    tgt = gnlCpy(Step, src, tgt, {
-      force,
-      baseCpy: Node.copy,
-      cpyMapper: { fkTask: Task.copy }
-    })
-    tgt.color = stypes[tgt.stype].color
-    tgt.icon = stypes[tgt.stype].icon as keyof typeof antdIcon
-    return tgt
-  }
-}
+import PgOper from '@lib/types/pgOper'
 
 export class GotoExtra {
   url: string
@@ -77,8 +39,8 @@ export class CollectExtra {
   }
 
   reset() {
-    this.colcCtnr = new PageEle()
-    this.colcItem = new PageEle()
+    this.colcCtnr.reset()
+    this.colcItem.reset()
     this.colcEles = []
   }
 
@@ -87,6 +49,78 @@ export class CollectExtra {
       force,
       cpyMapper: { colcCtnr: PageEle.copy, colcItem: PageEle.copy, colcEles: ColcItem.copy }
     })
+  }
+}
+
+export class OperaExtra {
+  opers: PgOper[]
+
+  constructor() {
+    this.opers = []
+  }
+
+  reset() {
+    this.opers = []
+  }
+
+  static copy(src: any, tgt?: OperaExtra, force = false) {
+    return gnlCpy(OperaExtra, src, tgt, { force, cpyMapper: { opers: PgOper.copy } })
+  }
+}
+
+export const stypes = {
+  goto: {
+    label: '页面跳转',
+    color: '#1677ff',
+    icon: 'SendOutlined',
+    copy: GotoExtra.copy
+  },
+  collect: {
+    label: '元素采集',
+    color: '#faad14',
+    icon: 'HighlightOutlined',
+    copy: CollectExtra.copy
+  },
+  opera: {
+    label: '页面操作',
+    color: '#52c41a',
+    icon: 'SelectOutlined',
+    copy: OperaExtra.copy
+  }
+}
+
+export default class Step extends Node {
+  stype: keyof typeof stypes
+  extra: any
+  fkTask: string | Task
+
+  constructor() {
+    super()
+    this.stype = 'goto'
+    this.extra = new GotoExtra()
+    this.fkTask = ''
+  }
+
+  reset() {
+    super.reset()
+    this.stype = 'goto'
+    if (this.extra.reset) {
+      this.extra.reset()
+    } else {
+      this.extra = {}
+    }
+    this.fkTask = ''
+  }
+
+  static copy(src: any, tgt?: Step, force = false) {
+    tgt = gnlCpy(Step, src, tgt, {
+      force,
+      baseCpy: Node.copy,
+      cpyMapper: { fkTask: Task.copy, extra: getProp(stypes, `${src.stype}.copy`) }
+    })
+    tgt.color = stypes[tgt.stype].color
+    tgt.icon = stypes[tgt.stype].icon as keyof typeof antdIcon
+    return tgt
   }
 }
 
@@ -116,32 +150,29 @@ export const mapperDict = {
       placeholder: '将跳转到页面选择元素'
     },
     colcEles: {
-      type: 'Table',
+      type: 'EditList',
       label: '采集表',
+      inline: false,
       mapper: new Mapper({
-        key: {
+        element: {
           type: 'Input',
-          label: '字段名',
-          rules: [{ required: true, message: '必须输入字段名！' }]
+          label: '页面元素'
         },
-        name: {
-          type: 'Input',
-          label: '中文名',
-          rules: [{ required: true, message: '必须输入中文名！' }]
-        },
-        ptype: {
+        ctype: {
           type: 'Select',
-          label: '类型',
-          options: typeOpns,
-          rules: [{ required: true, message: '必须选择字段类型！', trigger: 'change' }]
+          label: '提取内容',
+          options: Object.entries(ctypes).map(([value, label]) => ({ label, value }))
+        },
+        fkMetaobj: {
+          type: 'Select',
+          label: '元对象'
+        },
+        proper: {
+          type: 'Select',
+          label: '对应字段'
         }
       }),
-      columns: [
-        new Column('字段名', 'key'),
-        new Column('中文名', 'name'),
-        new Column('类型', 'ptype')
-      ],
-      newFun: () => newOne(Mprop)
+      newFun: () => newOne(ColcItem)
     }
   }),
   opera: () => ({})

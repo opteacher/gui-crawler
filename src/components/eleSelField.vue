@@ -1,9 +1,9 @@
 <template>
   <a-button
-    v-if="!getProp(form, prop)"
+    v-if="!getProp(form, prop) || !getProp(form, `${prop}.xpath`)"
     class="w-full"
     :type="selProp === prop ? 'primary' : 'default'"
-    @click="() => emit('selEleStart', prop)"
+    @click="onSelEleStart"
   >
     选择元素
   </a-button>
@@ -21,7 +21,7 @@
         <DownOutlined />
       </a-button>
     </a-dropdown>
-    <a-popconfirm title="确定解绑该元素吗？" @confirm="() => emit('selEleClear', props.prop)">
+    <a-popconfirm title="确定解绑该元素吗？" @confirm="onSelEleClear">
       <a-button type="primary" ghost danger>
         <template #icon><CloseOutlined /></template>
       </a-button>
@@ -30,9 +30,9 @@
 </template>
 
 <script setup lang="ts">
-import { getProp } from '@lib/utils'
+import { getProp, setProp } from '@lib/utils'
 import { CloseOutlined, DownOutlined } from '@ant-design/icons-vue'
-import { computed } from 'vue'
+import { computed, toRef } from 'vue'
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -40,9 +40,20 @@ const props = defineProps({
   selProp: { type: String, default: '' }
 })
 const emit = defineEmits(['selEleClear', 'selEleStart', 'eleIdenChange'])
-const idType = computed(() => getProp(props.form, `${props.prop}.idType`))
+const selProp = toRef(props.selProp)
+const form = toRef(props.form)
+const idType = computed(() => getProp(form.value, `${props.prop}.idType`))
 
+function onSelEleStart() {
+  selProp.value = selProp.value ? '' : props.prop
+  emit('selEleStart', props.prop)
+}
 function onElIdChange({ key }: any) {
-  emit('eleIdenChange', key)
+  setProp(form.value, props.prop + '.idType', key)
+  emit('eleIdenChange', props.prop, key)
+}
+function onSelEleClear() {
+  setProp(form.value, props.prop, undefined)
+  emit('selEleClear', props.prop)
 }
 </script>
