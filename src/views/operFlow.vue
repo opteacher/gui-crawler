@@ -62,6 +62,12 @@
           执行到该步骤
         </a-menu-item>
       </template>
+      <template #editNode_extra.colcCtnrVW="{ formState: step }: { formState: Step }">
+        {{ step.extra.colcCtnr[step.extra.colcCtnr.idType] }}
+      </template>
+      <template #editNode_extra.colcItemVW="{ formState: step }: { formState: Step }">
+        {{ step.extra.colcItem[step.extra.colcItem.idType] }}
+      </template>
     </FlowDsgn>
   </div>
 </template>

@@ -9,45 +9,28 @@
       :sbar-wid="500"
       :emitter="emitter"
       @update:sel-ele="onEleSelect"
-      @update:el-id-type="onEleIdenChange"
     >
       <template #sideBottom>
         <FormGroup :disabled="loading" class="p-5" :mapper="mapper" :form="curStep?.extra">
           <template v-if="curStep?.stype === 'collect'" #colcCtnr>
-            <a-button
-              v-if="!curStep.extra.colcCtnr || !curStep.extra.colcCtnr.iden"
-              class="w-full"
-              :type="selProp === 'colcCtnr' ? 'primary' : 'default'"
-              @click="() => onSelElClick('colcCtnr')"
-            >
-              选择元素
-            </a-button>
-            <a-input-group v-else compact class="flex">
-              <a-button type="primary" ghost class="flex-1 truncate">
-                {{ curStep.extra.colcCtnr.iden }}
-              </a-button>
-              <a-button type="primary" ghost danger @click="() => onBinEleClear('colcCtnr')">
-                <template #icon><CloseOutlined /></template>
-              </a-button>
-            </a-input-group>
+            <EleSelField
+              :form="curStep.extra"
+              prop="colcCtnr"
+              :selProp="selProp"
+              @sel-ele-start="onSelElStart"
+              @sel-ele-clear="onSelElClear"
+              @ele-iden-change="onElIdChange"
+            />
           </template>
           <template v-if="curStep?.stype === 'collect'" #colcItem>
-            <a-button
-              v-if="!curStep.extra.colcItem || !curStep.extra.colcItem.iden"
-              class="w-full"
-              :type="selProp === 'colcItem' ? 'primary' : 'default'"
-              @click="() => onSelElClick('colcItem')"
-            >
-              选择元素
-            </a-button>
-            <a-input-group v-else compact class="flex">
-              <a-button type="primary" ghost class="flex-1 truncate">
-                {{ curStep.extra.colcItem.iden }}
-              </a-button>
-              <a-button type="primary" ghost danger @click="() => onBinEleClear('colcItem')">
-                <template #icon><CloseOutlined /></template>
-              </a-button>
-            </a-input-group>
+            <EleSelField
+              :form="curStep.extra"
+              prop="colcItem"
+              :selProp="selProp"
+              @sel-ele-start="onSelElStart"
+              @sel-ele-clear="onSelElClear"
+              @ele-iden-change="onElIdChange"
+            />
           </template>
         </FormGroup>
       </template>
@@ -66,9 +49,9 @@ import stpAPI from '@/apis/step'
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
 import { TinyEmitter } from 'tiny-emitter'
-import { getProp, setProp, swchBoolProp } from '@lib/utils'
+import { getProp, pickOrIgnore, setProp, swchBoolProp } from '@lib/utils'
 import PageEle from '@lib/types/pageEle'
-import { CloseOutlined } from '@ant-design/icons-vue'
+import EleSelField from '@/components/eleSelField.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -109,8 +92,8 @@ async function refresh() {
   }
   const step = stpDict.value[stpKey]
   const stpMapper = mapperDict[step.stype]()
-  setProp(stpMapper, 'colcCtnr.onClick', () => onSelElClick('colcCtnr'))
-  setProp(stpMapper, 'colcItem.onClick', () => onSelElClick('colcItem'))
+  setProp(stpMapper, 'colcCtnr.onClick', () => onSelElStart('colcCtnr'))
+  setProp(stpMapper, 'colcItem.onClick', () => onSelElStart('colcItem'))
   mapper.value = new Mapper({
     ...stpMapper,
     execute: {
@@ -122,27 +105,38 @@ async function refresh() {
     }
   })
 }
-function onEleSelect(selEle?: PageEle) {
+async function onEleSelect(selEle?: PageEle) {
   if (selEle && selProp.value && curStep.value && curStep.value.stype === 'collect') {
-    setProp(stpDict.value, `${route.params.sid}.extra.${selProp.value}`, selEle)
-    setProp(mapper.value, `${selProp.value}.inner`, selEle.iden)
+    if (!route.params.sid) {
+      return
+    }
+    const sid = route.params.sid as string
+    setProp(stpDict.value, `${sid}.extra.${selProp.value}`, selEle)
+    await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
     setProp(mapper.value, `${selProp.value}.ghost`, true)
     selProp.value = ''
   }
 }
-function onEleIdenChange(idType: 'xpath' | 'idCls' | 'tagName') {
-  if (selProp.value && curStep.value && curStep.value.stype === 'collect') {
-    setProp(stpDict.value, `${route.params.sid}.extra.${selProp}.idType`, idType)
-    setProp(mapper.value, `${selProp.value}.inner`, getProp(curStep.value, `extra.${selProp}`))
-  }
-}
-function onSelElClick(prop: string) {
+function onSelElStart(prop: string) {
   emitter.emit('sel-ele')
   swchBoolProp(mapper.value, `${prop}.ghost`)
   selProp.value = selProp.value ? '' : prop
 }
-function onBinEleClear(prop: string) {
-  getProp(stpDict.value, `${route.params.sid}.extra.${prop}`)?.reset()
+async function onSelElClear(prop: string) {
+  if (!route.params.sid) {
+    return
+  }
+  const sid = route.params.sid as string
+  getProp(stpDict.value, `${sid}.extra.${prop}`)?.reset()
+  await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
   emitter.emit('clr-ele')
+}
+async function onElIdChange(iden: string) {
+  if (!route.params.sid) {
+    return
+  }
+  const sid = route.params.sid as string
+  setProp(stpDict.value, `${sid}.extra.${selProp.value}.idType`, iden)
+  await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
 }
 </script>
