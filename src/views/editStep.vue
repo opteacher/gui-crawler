@@ -13,28 +13,37 @@
     >
       <template #sideBottom>
         <FormGroup :disabled="loading" class="p-5" :mapper="mapper" :form="curStep?.extra">
-          <template v-if="curStep?.stype === 'collect'" #colcCtnr>
+          <template v-if="curStep?.stype === 'collect'" #container>
             <EleSelField
               :form="curStep.extra"
-              prop="colcCtnr"
+              prop="container"
               :selProp="selProp"
+              :selEle="pgElSelRef?.selEle"
               @sel-ele-start="onSelElStart"
               @sel-ele-clear="onSelElClear"
               @ele-iden-change="onElIdChange"
             />
           </template>
-          <template v-if="curStep?.stype === 'collect'" #colcItem>
+          <template v-if="curStep?.stype === 'collect'" #item>
             <EleSelField
               :form="curStep.extra"
-              prop="colcItem"
+              prop="item"
               :selProp="selProp"
+              :selEle="pgElSelRef?.selEle"
               @sel-ele-start="onSelElStart"
               @sel-ele-clear="onSelElClear"
               @ele-iden-change="onElIdChange"
             />
           </template>
           <template v-if="curStep?.stype === 'collect'" #binMaps>
-            <EleColcField :emitter="emitter" :meta-objs="metaObjs" :step-extra="curStep.extra" />
+            <EleColcField
+              :emitter="emitter"
+              :meta-objs="metaObjs"
+              :webview="pgElSelRef?.webviewRef"
+              :step-extra="curStep.extra"
+              @ele-meta-bind="() => updateStepExtra()"
+              @ele-meta-unbind="() => updateStepExtra()"
+            />
           </template>
         </FormGroup>
       </template>
@@ -58,11 +67,12 @@ import PageEle from '@lib/types/pageEle'
 import EleSelField from '@/components/eleSelField.vue'
 import EleColcField from '@/components/eleColcField.vue'
 import MetaObj from '@/types/metaObj'
+import BinMap from '@/types/binMap'
 
 const route = useRoute()
 const router = useRouter()
 const url = ref('')
-const pgElSelRef = ref()
+const pgElSelRef = ref<InstanceType<typeof PgEleSelect>>()
 const task = ref<Task>()
 const stpDict = ref<Record<string, Step>>({})
 const mapper = ref<Mapper>(new Mapper({}))
@@ -72,8 +82,9 @@ const curStep = computed<Step | undefined>(() => getProp(stpDict.value, route.pa
 const selProp = ref<string>('')
 const hlEles = computed(() =>
   [
-    getProp(curStep.value, 'extra.colcCtnr.xpath'),
-    getProp(curStep.value, 'extra.colcItem.xpath')
+    getProp(curStep.value, 'extra.container.xpath'),
+    getProp(curStep.value, 'extra.item.xpath'),
+    ...getProp(curStep.value, 'extra.binMaps', []).map((bm: BinMap) => bm.element.xpath)
   ].filter(v => v)
 )
 const metaObjs = computed(() => task.value?.fkMetaobjs as MetaObj[])
@@ -106,8 +117,8 @@ async function refresh() {
   const step = stpDict.value[stpKey]
   const stpMapper = mapperDict[step.stype as Stype]()
   if (step.stype === 'collect') {
-    setProp(stpMapper, 'colcCtnr.onClick', () => onSelElStart('colcCtnr'))
-    setProp(stpMapper, 'colcItem.onClick', () => onSelElStart('colcItem'))
+    setProp(stpMapper, 'container.onClick', () => onSelElStart('container'))
+    setProp(stpMapper, 'item.onClick', () => onSelElStart('item'))
   }
   mapper.value = new Mapper({
     ...stpMapper,
@@ -130,7 +141,7 @@ async function onEleSelect(selEle?: PageEle) {
           }
           const sid = route.params.sid as string
           setProp(stpDict.value, `${sid}.extra.${selProp.value}`, selEle)
-          await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
+          await updateStepExtra()
           selProp.value = ''
         }
         emitter.emit('ele-selected', selEle)
@@ -148,7 +159,7 @@ async function onSelElClear(prop: string) {
   }
   const sid = route.params.sid as string
   getProp(stpDict.value, `${sid}.extra.${prop}`)?.reset()
-  await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
+  await updateStepExtra()
   emitter.emit('clr-ele')
 }
 async function onElIdChange(prop: string, iden: string) {
@@ -157,6 +168,9 @@ async function onElIdChange(prop: string, iden: string) {
   }
   const sid = route.params.sid as string
   setProp(stpDict.value, `${sid}.extra.${prop}.idType`, iden)
-  await stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
+  await updateStepExtra()
+}
+function updateStepExtra(sid = route.params.sid as string) {
+  return stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
 }
 </script>

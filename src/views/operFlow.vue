@@ -66,10 +66,10 @@
         <a-button @click="() => onStepTitleAutoGen(step)">自动生成</a-button>
       </template>
       <template #editNode_extra.colcCtnrVW="{ formState: step }: { formState: Step }">
-        {{ step.extra.colcCtnr[step.extra.colcCtnr.idType] }}
+        {{ step.extra.container[step.extra.container.idType] }}
       </template>
       <template #editNode_extra.colcItemVW="{ formState: step }: { formState: Step }">
-        {{ step.extra.colcItem[step.extra.colcItem.idType] }}
+        {{ step.extra.item[step.extra.item.idType] }}
       </template>
     </FlowDsgn>
   </div>
@@ -86,8 +86,8 @@ import Task from '@/types/task'
 import tskAPI from '@/apis/task'
 import { TinyEmitter } from 'tiny-emitter'
 import { newOne, pickOrIgnore } from '@lib/utils'
-import { Cond, typeOpns } from '@lib/types'
-import MetaObj, { Mprop } from '@/types/metaObj'
+import { Cond } from '@lib/types'
+import MetaObj, { metaMapper } from '@/types/metaObj'
 import {
   PlusOutlined,
   MinusOutlined,
@@ -101,7 +101,6 @@ import { Modal, notification } from 'ant-design-vue'
 import CodeEditor from '@lib/components/CodeEditor.vue'
 import metaAPI from '@/apis/meta'
 import _ from 'lodash'
-import { v4 as uuid } from 'uuid'
 
 const route = useRoute()
 const router = useRouter()
@@ -148,52 +147,7 @@ const mapper = new Mapper({
 const emitter = new TinyEmitter()
 const metaState = reactive({
   emitter: new TinyEmitter(),
-  mapper: new Mapper({
-    name: {
-      type: 'Input',
-      label: '名称',
-      rules: [{ required: true, message: '必须输入名称！' }],
-      onBlur: (editing: MetaObj, name: string) => {
-        editing.name = _.capitalize(name)
-      }
-    },
-    label: {
-      type: 'Input',
-      label: '中文名'
-    },
-    desc: {
-      type: 'Textarea',
-      label: '描述'
-    },
-    propers: {
-      type: 'EditList',
-      label: '字段',
-      rules: [{ required: true, message: '必须填入至少一个字段！', type: 'array' }],
-      lblProp: 'name',
-      inline: false,
-      flatItem: false,
-      subProp: 'label',
-      mapper: new Mapper({
-        name: {
-          type: 'Input',
-          label: '字段名',
-          rules: [{ required: true, message: '必须输入字段名！' }]
-        },
-        label: {
-          type: 'Input',
-          label: '中文名'
-        },
-        ptype: {
-          type: 'Select',
-          label: '类型',
-          options: typeOpns,
-          rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }]
-        }
-      }),
-      newFun: Mprop.copy,
-      onAddSubmit: (newProp: Mprop) => (newProp.key = uuid())
-    }
-  })
+  mapper: new Mapper(metaMapper)
 })
 
 onMounted(refresh)
@@ -217,9 +171,13 @@ async function onStepsUpdate(nstps: Step[]) {
   await refresh()
 }
 async function onMetaSave(form: MetaObj, next: Function) {
-  const meta = await metaAPI(route.params.tid as string).add(form)
-  task.value.fkMetaobjs.push(meta)
+  if (form.key) {
+    await metaAPI(route.params.tid as string).update(form)
+  } else {
+    await metaAPI(route.params.tid as string).add(form)
+  }
   next()
+  task.value = await tskAPI.get(route.params.tid as string)
 }
 function onMetaEdtClick(meta?: MetaObj) {
   metaState.emitter.emit('update:visible', { show: true, object: meta })
@@ -260,19 +218,19 @@ function onStepCardClick(step: Step) {
     case 'collect':
       const extra = step.extra as CollectExtra
       emitter.emit('update:mprop', {
-        'extra.items.colcCtnr.onClick': () =>
+        'extra.items.container.onClick': () =>
           router.push(`/gui-crawler/task/${route.params.tid}/step/${step.key}/edit`),
-        'extra.items.colcItem.onClick': () =>
+        'extra.items.item.onClick': () =>
           router.push(`/gui-crawler/task/${route.params.tid}/step/${step.key}/edit`)
       })
-      if (extra.colcCtnr.iden) {
+      if (extra.container.iden) {
         emitter.emit('update:mprop', {
-          'extra.items.colcCtnr.inner': extra.colcCtnr.iden
+          'extra.items.container.inner': extra.container.iden
         })
       }
-      if (extra.colcItem.iden) {
+      if (extra.item.iden) {
         emitter.emit('update:mprop', {
-          'extra.items.colcItem.inner': extra.colcItem.iden
+          'extra.items.item.inner': extra.item.iden
         })
       }
   }

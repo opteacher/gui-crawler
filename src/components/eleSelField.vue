@@ -32,12 +32,14 @@
 <script setup lang="ts">
 import { getProp, setProp } from '@lib/utils'
 import { CloseOutlined, DownOutlined } from '@ant-design/icons-vue'
-import { computed, toRef } from 'vue'
+import { computed, PropType, toRef } from 'vue'
+import PageEle from '@lib/types/pageEle'
 
 const props = defineProps({
   form: { type: Object, required: true },
   prop: { type: String, required: true },
-  selProp: { type: String, default: '' }
+  selProp: { type: String, default: '' },
+  selEle: { type: Object as PropType<PageEle>, default: null }
 })
 const emit = defineEmits(['selEleClear', 'selEleStart', 'eleIdenChange'])
 const selProp = toRef(props.selProp)
@@ -45,8 +47,13 @@ const form = toRef(props.form)
 const idType = computed(() => getProp(form.value, `${props.prop}.idType`))
 
 function onSelEleStart() {
-  selProp.value = selProp.value ? '' : props.prop
-  emit('selEleStart', props.prop)
+  if (props.selEle) {
+    selProp.value = ''
+    setProp(form.value, props.prop, props.selEle)
+  } else {
+    selProp.value = selProp.value ? '' : props.prop
+    emit('selEleStart', props.prop)
+  }
 }
 function onElIdChange({ key }: any) {
   setProp(form.value, props.prop + '.idType', key)
@@ -54,6 +61,7 @@ function onElIdChange({ key }: any) {
 }
 function onSelEleClear() {
   setProp(form.value, props.prop, undefined)
+  selProp.value = ''
   emit('selEleClear', props.prop)
 }
 </script>

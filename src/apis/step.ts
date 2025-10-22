@@ -1,6 +1,7 @@
 import Step from '@/types/step'
 import router from '@/router'
 import { reqAll, reqDelete, reqLink, reqPost, reqPut, RequestOptions } from '@lib/utils'
+import BinMap from '@/types/binMap'
 
 const ignores = ['fkTask', 'rect', 'icon', 'color', 'addMode']
 
@@ -17,5 +18,21 @@ export default {
       ...(options || {}),
       copy: Step.copy,
       axiosConfig: { params: { fkTask: tid } }
-    })
+    }),
+  collect: (sid: string) => ({
+    bind: (binMap: BinMap) =>
+      reqPut(
+        'step',
+        sid,
+        { 'extra.binMaps': binMap },
+        { axiosConfig: { params: { _updMode: 'append' } } }
+      ),
+    unbind: (binMap: BinMap) =>
+      reqPut(
+        'step',
+        sid,
+        { 'extra.binMaps': binMap },
+        { axiosConfig: { params: { _updMode: 'delete' } } }
+      )
+  })
 }

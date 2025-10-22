@@ -26,26 +26,29 @@ export class GotoExtra {
 }
 
 export class CollectExtra {
-  colcCtnr: PageEle
-  colcItem: PageEle
+  container: PageEle
+  item: PageEle
   binMaps: BinMap[]
+  strategy: 'first' | 'all'
 
   constructor() {
-    this.colcCtnr = new PageEle()
-    this.colcItem = new PageEle()
+    this.container = new PageEle()
+    this.item = new PageEle()
     this.binMaps = []
+    this.strategy = 'all'
   }
 
   reset() {
-    this.colcCtnr.reset()
-    this.colcItem.reset()
+    this.container.reset()
+    this.item.reset()
     this.binMaps = []
+    this.strategy = 'all'
   }
 
   static copy(src: any, tgt?: CollectExtra, force = false) {
     return gnlCpy(CollectExtra, src, tgt, {
       force,
-      cpyMapper: { colcCtnr: PageEle.copy, colcItem: PageEle.copy, binMaps: BinMap.copy }
+      cpyMapper: { container: PageEle.copy, item: PageEle.copy, binMaps: BinMap.copy }
     })
   }
 }
@@ -135,7 +138,7 @@ export const mapperDict = {
     }
   }),
   collect: () => ({
-    colcCtnr: {
+    container: {
       type: 'Button',
       inner: '选择元素',
       label: '采集容器',
@@ -143,7 +146,7 @@ export const mapperDict = {
       fullWid: true,
       disabled: [Cond.create('key', '==', '')]
     },
-    colcItem: {
+    item: {
       type: 'Button',
       inner: '选择元素',
       label: '采集项',
@@ -158,6 +161,15 @@ export const mapperDict = {
       placeholder: '将跳转到页面选择元素',
       fullWid: true,
       disabled: [Cond.create('key', '==', '')]
+    },
+    strategy: {
+      type: 'Radio',
+      label: '采集策略',
+      options: [
+        { label: '采集当页所有', value: 'all' },
+        { label: '只采第一条', value: 'first' }
+      ],
+      style: 'button'
     }
   }),
   opera: () => ({})

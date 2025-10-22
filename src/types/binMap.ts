@@ -1,38 +1,40 @@
 import PageEle from '@lib/types/pageEle'
-import MetaObj from './metaObj'
 import { gnlCpy } from '@lib/utils'
 
 export const ctypes = {
-  text: '文本',
-  file: '文件',
-  picture: '图片'
+  text: { label: '文本', color: 'blue' },
+  file: { label: '文件', color: 'cyan' },
+  picture: { label: '图片', color: 'purple' }
 }
 
 export default class BinMap {
   key: string
   element: PageEle
   ctype: keyof typeof ctypes
-  fkMetaobj?: string | MetaObj
+  metaObj?: string
   proper?: string
+  desc: string
 
   constructor() {
     this.key = ''
     this.element = new PageEle()
     this.ctype = 'text'
+    this.desc = ''
   }
 
   reset() {
     this.key = ''
     this.element.reset()
     this.ctype = 'text'
-    this.fkMetaobj = undefined
+    this.metaObj = undefined
     this.proper = undefined
+    this.desc = ''
   }
 
   static copy(src: any, tgt?: BinMap, force = false) {
     return gnlCpy(BinMap, src, tgt, {
       force,
-      cpyMapper: { element: PageEle.copy, fkMetaobj: MetaObj.copy }
+      cpyMapper: { element: PageEle.copy }
     })
   }
 }
