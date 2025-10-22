@@ -1,6 +1,6 @@
 <template>
   <div class="h-full flex flex-col">
-    <a-page-header :title="task?.name" :sub-title="task?.desc" @back="() => router.back()" />
+    <a-page-header :title="task?.name" :sub-title="curStep?.title" @back="() => router.back()" />
     <PgEleSelect
       class="flex-1"
       ref="pgElSelRef"
@@ -33,8 +33,8 @@
               @ele-iden-change="onElIdChange"
             />
           </template>
-          <template v-if="curStep?.stype === 'collect'" #colcEles>
-            <EleColcField :emitter="emitter" :meta-objs="metaObjs" />
+          <template v-if="curStep?.stype === 'collect'" #binMaps>
+            <EleColcField :emitter="emitter" :meta-objs="metaObjs" :step-extra="curStep.extra" />
           </template>
         </FormGroup>
       </template>
@@ -48,7 +48,7 @@ import PgEleSelect from '@lib/components/PgEleSelect.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
-import Step, { mapperDict } from '@/types/step'
+import Step, { mapperDict, Stype } from '@/types/step'
 import stpAPI from '@/apis/step'
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
@@ -104,9 +104,11 @@ async function refresh() {
     }
   }
   const step = stpDict.value[stpKey]
-  const stpMapper = mapperDict[step.stype]()
-  setProp(stpMapper, 'colcCtnr.onClick', () => onSelElStart('colcCtnr'))
-  setProp(stpMapper, 'colcItem.onClick', () => onSelElStart('colcItem'))
+  const stpMapper = mapperDict[step.stype as Stype]()
+  if (step.stype === 'collect') {
+    setProp(stpMapper, 'colcCtnr.onClick', () => onSelElStart('colcCtnr'))
+    setProp(stpMapper, 'colcItem.onClick', () => onSelElStart('colcItem'))
+  }
   mapper.value = new Mapper({
     ...stpMapper,
     execute: {

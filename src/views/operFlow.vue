@@ -47,7 +47,7 @@
       :keygen-fun="onNewStepClick"
       @del:node="onDelStepSubmit"
       @update:nodes="onStepsUpdate"
-      @click:node="({ stype }: Step) => emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[stype]()) })"
+      @click:node="onStepCardClick"
     >
       <template #extToolBtns>
         <a-float-button tooltip="显示代码" @click="onShowCodesClick">
@@ -77,7 +77,7 @@ import { useRoute, useRouter } from 'vue-router'
 import FlowDsgn from '@lib/components/FlowDsgn.vue'
 import { createVNode, onMounted, reactive, ref } from 'vue'
 import Mapper from '@lib/types/mapper'
-import Step, { mapperDict, stypes } from '@/types/step'
+import Step, { CollectExtra, mapperDict, Stype, stypes } from '@/types/step'
 import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
@@ -97,6 +97,7 @@ import FormDialog from '@lib/components/FormDialog.vue'
 import { Modal, notification } from 'ant-design-vue'
 import CodeEditor from '@lib/components/CodeEditor.vue'
 import metaAPI from '@/apis/meta'
+import _ from 'lodash'
 
 const route = useRoute()
 const router = useRouter()
@@ -118,18 +119,23 @@ const mapper = new Mapper({
     rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }],
     options: Object.entries(stypes).map(([value, { label }]) => ({ value, label })),
     disabled: {
-      OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '=', 0)]
+      OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '==', 0)]
+    },
+    onChange: (editing: Step, stype: keyof typeof stypes) => {
+      emitter.emit('update:mprop', { 'extra.items': mapperDict[stype]() })
+      emitter.emit('update:dprop', { extra: stypes[stype].copy({}) })
+      console.log(editing)
     }
   },
   extra: {
     type: 'FormGroup',
     label: '额外参数',
     prefix: true,
-    canFold: false,
-    vwOnly: true
+    canFold: false
   },
   preview: {
     type: 'Button',
+    display: [Cond.create('key', '!=', '')],
     offset: 4,
     inner: '执行到该步骤',
     onClick: onExecToStepClick
@@ -142,7 +148,10 @@ const metaState = reactive({
     name: {
       type: 'Input',
       label: '名称',
-      rules: [{ required: true, message: '必须输入名称！' }]
+      rules: [{ required: true, message: '必须输入名称！' }],
+      onBlur: (editing: MetaObj, name: string) => {
+        editing.name = _.capitalize(name)
+      }
     },
     label: {
       type: 'Input',
@@ -159,16 +168,16 @@ const metaState = reactive({
       lblProp: 'name',
       inline: false,
       flatItem: false,
-      subProp: 'desc',
+      subProp: 'label',
       mapper: new Mapper({
         name: {
           type: 'Input',
-          label: '字段名（英）',
+          label: '字段名',
           rules: [{ required: true, message: '必须输入字段名！' }]
         },
-        desc: {
+        label: {
           type: 'Input',
-          label: '说明（中）'
+          label: '中文名'
         },
         ptype: {
           type: 'Select',
@@ -189,11 +198,12 @@ async function refresh() {
   steps.splice(0, steps.length, ...(await stpAPI.all()))
   emitter.emit('refresh')
 }
-async function onNewStepClick(step: any) {
+async function onNewStepClick(step: Step) {
   return stpAPI.add(step).then(newStp => newStp.key)
 }
-function onDelStepSubmit(step: any) {
-  return stpAPI.remove(step)
+async function onDelStepSubmit(step: Step, callback: Function) {
+  await stpAPI.remove(step)
+  callback()
 }
 async function onStepsUpdate(nstps: Step[]) {
   await Promise.all(
@@ -234,5 +244,28 @@ function onExecToStepClick(step: Step) {
     return
   }
   router.push(`/gui-crawler/task/${tskKey}/step/${stpKey}/edit`)
+}
+function onStepCardClick(step: Step) {
+  emitter.emit('update:mprop', { 'extra.items': mapperDict[step.stype as Stype]() })
+  switch (step.stype) {
+    case 'collect':
+      const extra = step.extra as CollectExtra
+      emitter.emit('update:mprop', {
+        'extra.items.colcCtnr.onClick': () =>
+          router.push(`/gui-crawler/task/${route.params.tid}/step/${step.key}/edit`),
+        'extra.items.colcItem.onClick': () =>
+          router.push(`/gui-crawler/task/${route.params.tid}/step/${step.key}/edit`)
+      })
+      if (extra.colcCtnr.iden) {
+        emitter.emit('update:mprop', {
+          'extra.items.colcCtnr.inner': extra.colcCtnr.iden
+        })
+      }
+      if (extra.colcItem.iden) {
+        emitter.emit('update:mprop', {
+          'extra.items.colcItem.inner': extra.colcItem.iden
+        })
+      }
+  }
 }
 </script>

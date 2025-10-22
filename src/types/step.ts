@@ -1,12 +1,10 @@
 import Node from '@lib/types/node'
-import { getProp, gnlCpy, newOne } from '@lib/utils'
+import { getProp, gnlCpy } from '@lib/utils'
 import Task from './task'
-import * as antdIcon from '@ant-design/icons-vue'
-import ColcItem, { ctypes } from './colcItem'
+import BinMap from './binMap'
 import PageEle from '@lib/types/pageEle'
-import Mapper from '@lib/types/mapper'
-import Column from '@lib/types/column'
 import PgOper from '@lib/types/pgOper'
+import { Cond } from '@lib/types'
 
 export class GotoExtra {
   url: string
@@ -30,24 +28,24 @@ export class GotoExtra {
 export class CollectExtra {
   colcCtnr: PageEle
   colcItem: PageEle
-  colcEles: ColcItem[]
+  binMaps: BinMap[]
 
   constructor() {
     this.colcCtnr = new PageEle()
     this.colcItem = new PageEle()
-    this.colcEles = []
+    this.binMaps = []
   }
 
   reset() {
     this.colcCtnr.reset()
     this.colcItem.reset()
-    this.colcEles = []
+    this.binMaps = []
   }
 
   static copy(src: any, tgt?: CollectExtra, force = false) {
     return gnlCpy(CollectExtra, src, tgt, {
       force,
-      cpyMapper: { colcCtnr: PageEle.copy, colcItem: PageEle.copy, colcEles: ColcItem.copy }
+      cpyMapper: { colcCtnr: PageEle.copy, colcItem: PageEle.copy, binMaps: BinMap.copy }
     })
   }
 }
@@ -89,26 +87,23 @@ export const stypes = {
   }
 }
 
+export type Stype = keyof typeof stypes
+
 export default class Step extends Node {
-  stype: keyof typeof stypes
+  stype?: Stype
   extra: any
   fkTask: string | Task
 
   constructor() {
     super()
-    this.stype = 'goto'
-    this.extra = new GotoExtra()
+    this.extra = null
     this.fkTask = ''
   }
 
   reset() {
     super.reset()
-    this.stype = 'goto'
-    if (this.extra.reset) {
-      this.extra.reset()
-    } else {
-      this.extra = {}
-    }
+    this.stype = undefined
+    this.extra = null
     this.fkTask = ''
   }
 
@@ -118,8 +113,8 @@ export default class Step extends Node {
       baseCpy: Node.copy,
       cpyMapper: { fkTask: Task.copy, extra: getProp(stypes, `${src.stype}.copy`) }
     })
-    tgt.color = stypes[tgt.stype].color
-    tgt.icon = stypes[tgt.stype].icon as keyof typeof antdIcon
+    tgt.color = getProp(stypes, `${tgt.stype}.color`)
+    tgt.icon = getProp(stypes, `${tgt.stype}.icon`)
     return tgt
   }
 }
@@ -141,38 +136,25 @@ export const mapperDict = {
       type: 'Button',
       inner: '选择元素',
       label: '采集容器',
-      placeholder: '将跳转到页面选择元素'
+      placeholder: '将跳转到页面选择元素',
+      fullWid: true,
+      disabled: [Cond.create('key', '==', '')]
     },
     colcItem: {
       type: 'Button',
       inner: '选择元素',
       label: '采集项',
-      placeholder: '将跳转到页面选择元素'
+      placeholder: '将跳转到页面选择元素',
+      fullWid: true,
+      disabled: [Cond.create('key', '==', '')]
     },
-    colcEles: {
-      type: 'EditList',
+    binMaps: {
+      type: 'Button',
+      inner: '添加采集项',
       label: '采集表',
-      inline: false,
-      mapper: new Mapper({
-        element: {
-          type: 'Input',
-          label: '页面元素'
-        },
-        ctype: {
-          type: 'Select',
-          label: '提取内容',
-          options: Object.entries(ctypes).map(([value, label]) => ({ label, value }))
-        },
-        fkMetaobj: {
-          type: 'Select',
-          label: '元对象'
-        },
-        proper: {
-          type: 'Select',
-          label: '对应字段'
-        }
-      }),
-      newFun: () => newOne(ColcItem)
+      placeholder: '将跳转到页面选择元素',
+      fullWid: true,
+      disabled: [Cond.create('key', '==', '')]
     }
   }),
   opera: () => ({})

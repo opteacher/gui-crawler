@@ -4,20 +4,20 @@ import { gnlCpy } from '@lib/utils'
 export class Mprop {
   key: string
   name: string
-  desc: string
+  label: string
   ptype: BaseTypes
 
   constructor() {
     this.key = ''
     this.name = ''
-    this.desc = ''
+    this.label = ''
     this.ptype = 'String'
   }
 
   reset() {
     this.key = ''
     this.name = ''
-    this.desc = ''
+    this.label = ''
     this.ptype = 'String'
   }
 

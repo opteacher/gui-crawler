@@ -8,7 +8,7 @@ export const ctypes = {
   picture: '图片'
 }
 
-export default class ColcItem {
+export default class BinMap {
   key: string
   element: PageEle
   ctype: keyof typeof ctypes
@@ -31,8 +31,8 @@ export default class ColcItem {
     this.proper = ''
   }
 
-  static copy(src: any, tgt?: ColcItem, force = false) {
-    return gnlCpy(ColcItem, src, tgt, {
+  static copy(src: any, tgt?: BinMap, force = false) {
+    return gnlCpy(BinMap, src, tgt, {
       force,
       cpyMapper: { element: PageEle.copy, fkMetaobj: MetaObj.copy }
     })

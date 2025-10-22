@@ -8,7 +8,7 @@
     选择元素
   </a-button>
   <a-input-group v-else compact class="flex">
-    <a-dropdown class="flex-1 truncate">
+    <a-dropdown class="flex-1 truncate" :trigger="['click']">
       <template #overlay>
         <a-menu @click="onElIdChange">
           <a-menu-item key="xpath">xpath</a-menu-item>
