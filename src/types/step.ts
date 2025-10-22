@@ -71,18 +71,21 @@ export const stypes = {
     label: '页面跳转',
     color: '#1677ff',
     icon: 'SendOutlined',
+    title: '跳转到：@url$',
     copy: GotoExtra.copy
   },
   collect: {
     label: '元素采集',
     color: '#faad14',
     icon: 'HighlightOutlined',
+    title: '从页面中采集元素绑定元对象',
     copy: CollectExtra.copy
   },
   opera: {
     label: '页面操作',
     color: '#52c41a',
     icon: 'SelectOutlined',
+    title: '在页面中操作',
     copy: OperaExtra.copy
   }
 }

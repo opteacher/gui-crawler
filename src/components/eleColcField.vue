@@ -7,12 +7,25 @@
   <a-button v-else class="w-full" type="primary" ghost @click="() => (editing = new BinMap())">
     添加采集元素
   </a-button>
+  <a-descriptions>
+    <a-descriptions-item v-for="binMap in stepExtra.binMaps">
+      <template #label>
+        <pre>{{
+          binMap.element.iden
+            .split(' ')
+            .filter(s => s)
+            .join('\n.')
+        }}</pre>{{ binMap.ctype }}
+      </template>
+      {{ getMetaObjLabel(binMap.fkMetaobj) }}.{{ binMap.proper }}
+    </a-descriptions-item>
+  </a-descriptions>
 </template>
 
 <script setup lang="ts">
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper, { ButtonMapper } from '@lib/types/mapper'
-import { PropType, reactive, ref, toRef } from 'vue'
+import { computed, PropType, reactive, ref, toRef } from 'vue'
 import BinMap, { ctypes } from '../types/binMap'
 import EleSelField from './eleSelField.vue'
 import { TinyEmitter } from 'tiny-emitter'
@@ -58,6 +71,7 @@ const mapper = reactive(
       onChange: (binMap: BinMap, key: string) => {
         binMap.fkMetaobj = key
         const metaObj = props.metaObjs.find(mo => mo.key === key)
+        console.log(metaObj?.propers.map(prop => ({ label: prop.label, value: prop.key })))
         setProp(
           mapper,
           'proper.options',
@@ -70,6 +84,9 @@ const mapper = reactive(
       label: '对应字段',
       placeholder: '选择字段',
       rules: [{ required: true, message: '必须选择元素值填入的字段！', trigger: 'change' }],
+      onChange: (binMap: BinMap, to: string) => {
+        console.log(binMap, to)
+      }
     },
     sbtBtns: {
       type: 'Buttons',
@@ -97,6 +114,7 @@ const mapper = reactive(
     }
   })
 )
+const moDict = computed(() => Object.fromEntries(props.metaObjs.map(mo => [mo.key, mo])))
 
 props.emitter.on('ele-selected', (selEle: PageEle) => {
   if (editing.value) {
@@ -106,5 +124,8 @@ props.emitter.on('ele-selected', (selEle: PageEle) => {
 
 function onSelElStart() {
   props.emitter.emit('sel-ele')
+}
+function getMetaObjLabel(metaObj?: MetaObj | string) {
+  return typeof metaObj === 'string' ? moDict.value[metaObj].label : metaObj?.label
 }
 </script>

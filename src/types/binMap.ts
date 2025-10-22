@@ -12,23 +12,21 @@ export default class BinMap {
   key: string
   element: PageEle
   ctype: keyof typeof ctypes
-  fkMetaobj: string | MetaObj
-  proper: string
+  fkMetaobj?: string | MetaObj
+  proper?: string
 
   constructor() {
     this.key = ''
     this.element = new PageEle()
     this.ctype = 'text'
-    this.fkMetaobj = ''
-    this.proper = ''
   }
 
   reset() {
     this.key = ''
     this.element.reset()
     this.ctype = 'text'
-    this.fkMetaobj = ''
-    this.proper = ''
+    this.fkMetaobj = undefined
+    this.proper = undefined
   }
 
   static copy(src: any, tgt?: BinMap, force = false) {

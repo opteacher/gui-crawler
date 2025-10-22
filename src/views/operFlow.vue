@@ -62,6 +62,9 @@
           执行到该步骤
         </a-menu-item>
       </template>
+      <template #editNode_titleSFX="{ formState: step }: { formState: Step }">
+        <a-button @click="() => onStepTitleAutoGen(step)">自动生成</a-button>
+      </template>
       <template #editNode_extra.colcCtnrVW="{ formState: step }: { formState: Step }">
         {{ step.extra.colcCtnr[step.extra.colcCtnr.idType] }}
       </template>
@@ -98,6 +101,7 @@ import { Modal, notification } from 'ant-design-vue'
 import CodeEditor from '@lib/components/CodeEditor.vue'
 import metaAPI from '@/apis/meta'
 import _ from 'lodash'
+import { v4 as uuid } from 'uuid'
 
 const route = useRoute()
 const router = useRouter()
@@ -186,7 +190,8 @@ const metaState = reactive({
           rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }]
         }
       }),
-      newFun: Mprop.copy
+      newFun: Mprop.copy,
+      onAddSubmit: (newProp: Mprop) => (newProp.key = uuid())
     }
   })
 })
@@ -246,6 +251,10 @@ function onExecToStepClick(step: Step) {
   router.push(`/gui-crawler/task/${tskKey}/step/${stpKey}/edit`)
 }
 function onStepCardClick(step: Step) {
+  if (!step.previous.length) {
+    emitter.emit('update:dprop', { stype: 'goto' })
+    step.stype = 'goto'
+  }
   emitter.emit('update:mprop', { 'extra.items': mapperDict[step.stype as Stype]() })
   switch (step.stype) {
     case 'collect':
@@ -267,5 +276,12 @@ function onStepCardClick(step: Step) {
         })
       }
   }
+}
+function onStepTitleAutoGen(step: Step) {
+  let title = stypes[step.stype as Stype].title
+  for (const [key, val] of Object.entries(step.extra)) {
+    title = title.replace(`@${key}$`, (val as any).toString() || 'XXXX')
+  }
+  emitter.emit('update:dprop', { title })
 }
 </script>
