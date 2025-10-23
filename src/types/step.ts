@@ -5,6 +5,7 @@ import BinMap from './binMap'
 import PageEle from '@lib/types/pageEle'
 import PgOper from '@lib/types/pgOper'
 import { Cond } from '@lib/types'
+import { TinyEmitter } from 'tiny-emitter'
 
 export class GotoExtra {
   url: string
@@ -123,54 +124,4 @@ export default class Step extends Node {
     tgt.icon = getProp(stypes, `${tgt.stype}.icon`)
     return tgt
   }
-}
-
-export const mapperDict = {
-  goto: () => ({
-    url: {
-      type: 'Input',
-      label: '地址',
-      rules: [{ required: true, message: '必须输入网站地址！' }]
-    },
-    newPage: {
-      type: 'Switch',
-      label: '新页面打开'
-    }
-  }),
-  collect: () => ({
-    container: {
-      type: 'Button',
-      inner: '选择元素',
-      label: '采集容器',
-      placeholder: '将跳转到页面选择元素',
-      fullWid: true,
-      disabled: [Cond.create('key', '==', '')]
-    },
-    item: {
-      type: 'Button',
-      inner: '选择元素',
-      label: '采集项',
-      placeholder: '将跳转到页面选择元素',
-      fullWid: true,
-      disabled: [Cond.create('key', '==', '')]
-    },
-    binMaps: {
-      type: 'Button',
-      inner: '添加采集项',
-      label: '采集表',
-      placeholder: '将跳转到页面选择元素',
-      fullWid: true,
-      disabled: [Cond.create('key', '==', '')]
-    },
-    strategy: {
-      type: 'Radio',
-      label: '采集策略',
-      options: [
-        { label: '采集当页所有', value: 'all' },
-        { label: '只采第一条', value: 'first' }
-      ],
-      style: 'button'
-    }
-  }),
-  opera: () => ({})
 }

@@ -80,7 +80,7 @@ import { useRoute, useRouter } from 'vue-router'
 import FlowDsgn from '@lib/components/FlowDsgn.vue'
 import { createVNode, onMounted, reactive, ref } from 'vue'
 import Mapper from '@lib/types/mapper'
-import Step, { CollectExtra, mapperDict, Stype, stypes } from '@/types/step'
+import Step, { CollectExtra, Stype, stypes } from '@/types/step'
 import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
@@ -106,6 +106,46 @@ const route = useRoute()
 const router = useRouter()
 const task = ref<Task>(new Task())
 const steps = reactive<Step[]>([])
+const mapperDict = {
+  goto: {
+    url: {
+      type: 'Input',
+      label: '地址',
+      rules: [{ required: true, message: '必须输入网站地址！' }]
+    },
+    newPage: {
+      type: 'Switch',
+      label: '新页面打开'
+    }
+  },
+  collect: {
+    container: {
+      type: 'PageEleSel',
+      label: '采集容器',
+      vwOnly: true
+    },
+    item: {
+      type: 'PageEleSel',
+      label: '采集项',
+      vwOnly: true
+    },
+    binMaps: {
+      type: 'Table',
+      label: '采集表',
+      vwOnly: true
+    },
+    strategy: {
+      type: 'Radio',
+      label: '采集策略',
+      options: [
+        { label: '采集当页所有', value: 'all' },
+        { label: '只采第一条', value: 'first' }
+      ],
+      style: 'button'
+    }
+  },
+  opera: {}
+}
 const mapper = new Mapper({
   title: {
     type: 'Input',
@@ -124,10 +164,9 @@ const mapper = new Mapper({
     disabled: {
       OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '==', 0)]
     },
-    onChange: (editing: Step, stype: keyof typeof stypes) => {
-      emitter.emit('update:mprop', { 'extra.items': mapperDict[stype]() })
+    onChange: (_editing: Step, stype: keyof typeof stypes) => {
+      emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[stype]) })
       emitter.emit('update:dprop', { extra: stypes[stype].copy({}) })
-      console.log(editing)
     }
   },
   extra: {
@@ -213,7 +252,7 @@ function onStepCardClick(step: Step) {
     emitter.emit('update:dprop', { stype: 'goto' })
     step.stype = 'goto'
   }
-  emitter.emit('update:mprop', { 'extra.items': mapperDict[step.stype as Stype]() })
+  emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[step.stype as Stype]) })
   switch (step.stype) {
     case 'collect':
       const extra = step.extra as CollectExtra

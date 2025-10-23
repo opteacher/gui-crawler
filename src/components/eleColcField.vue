@@ -1,9 +1,5 @@
 <template>
-  <FormGroup v-if="editing" :mapper="mapper" :form="editing">
-    <template #element="{ formState }: any">
-      <EleSelField :form="formState" prop="element" :emitter="emitter" />
-    </template>
-  </FormGroup>
+  <FormGroup v-if="editing" :mapper="mapper" :form="editing" />
   <a-button v-else class="w-full" type="primary" ghost @click="() => (editing = new BinMap())">
     添加采集元素
   </a-button>
@@ -56,7 +52,6 @@ import FormDialog from '@lib/components/FormDialog.vue'
 import Mapper, { ButtonMapper } from '@lib/types/mapper'
 import { computed, PropType, reactive, ref, toRef } from 'vue'
 import BinMap, { ctypes } from '../types/binMap'
-import EleSelField from './eleSelField.vue'
 import { TinyEmitter } from 'tiny-emitter'
 import PageEle from '@lib/types/pageEle'
 import MetaObj, { metaMapper } from '@/types/metaObj'
@@ -76,8 +71,13 @@ const stepExtra = toRef(props.stepExtra)
 const editing = ref<BinMap | null>(null)
 const mapper = reactive(
   new Mapper({
+    preOpers: {
+      type: 'EditList',
+      label: '前置操作',
+      mapper: new Mapper({})
+    },
     element: {
-      type: 'Unknown',
+      type: 'PageEleSel',
       label: '页面元素',
       rules: [
         {
@@ -87,7 +87,8 @@ const mapper = reactive(
             callback(value.xpath ? undefined : rule.message)
           }
         }
-      ]
+      ],
+      emitter: props.emitter
     },
     ctype: {
       type: 'Select',
@@ -116,6 +117,12 @@ const mapper = reactive(
       placeholder: '选择字段',
       rules: [{ required: true, message: '必须选择元素值填入的字段！', trigger: 'change' }],
       onChange: (binMap: BinMap, to: string) => (binMap.proper = to)
+    },
+    required: {
+      type: 'Switch',
+      label: '必要',
+      placeholder: '必要的字段不存在，则该记录不会被爬取',
+      chkLabels: ['非必要', '必要']
     },
     sbtBtns: {
       type: 'Buttons',
@@ -154,7 +161,7 @@ function getEleIdenLabel(binMap: BinMap) {
   switch (binMap.element.idType) {
     case 'idCls':
       return binMap.element.iden
-        .split(' ')
+        .split('.')
         .filter(s => s)
         .join('\n.')
     case 'xpath':
