@@ -1,0 +1,141 @@
+{
+  "_id": "68f99a38e9bc62f3a669636b",
+  "title": "从页面中采集元素绑定元对象",
+  "desc": "",
+  "stype": "collect",
+  "previous": ["68f89a82e9bc62f3a6696184"],
+  "nexts": [],
+  "extra": {
+    "container": {
+      "xpath": "//*[@id=\"__layout\"]/div[1]/div[2]/div[1]/div[4]",
+      "idCls": ".community-bar",
+      "tagName": "div",
+      "rectBox": {
+        "x": 0,
+        "y": 227,
+        "width": 824,
+        "height": 8368,
+        "top": 227,
+        "right": 824,
+        "bottom": 8595,
+        "left": 0
+      },
+      "idType": "idCls"
+    },
+    "item": {
+      "xpath": "//*[@id=\"__layout\"]/div[1]/div[2]/div[1]/div[4]/ul[1]/li[5]/div[1]",
+      "idCls": ".row straight-line",
+      "tagName": "div",
+      "rectBox": {
+        "x": 26,
+        "y": 423,
+        "width": 772,
+        "height": 288,
+        "top": 423,
+        "right": 798,
+        "bottom": 711,
+        "left": 26
+      },
+      "idType": "idCls"
+    },
+    "binMaps": [
+      {
+        "key": "2eb73038-8fbb-4b17-baaf-7e08523cd2b9",
+        "element": {
+          "xpath": "//*[@id=\"__layout\"]/div[1]/div[2]/div[1]/div[4]/ul[1]/li[5]/div[1]/section[1]/div[2]/div[1]/div[1]",
+          "idCls": ".book-title asdasd  click fs17-bold",
+          "tagName": "div",
+          "rectBox": {
+            "x": 26,
+            "y": 496,
+            "width": 772,
+            "height": 24,
+            "top": 496,
+            "right": 798,
+            "bottom": 520,
+            "left": 26
+          },
+          "idType": "idCls"
+        },
+        "ctype": "text",
+        "metaObj": "68f8a561e9bc62f3a66961f0",
+        "proper": "ec0043ae-a7ab-47bf-b3c1-48911e4677c1",
+        "desc": ""
+      },
+      {
+        "key": "0f89ce17-99bd-4244-8380-478ef70d0f0c",
+        "element": {
+          "xpath": "//*[@id=\"__layout\"]/div[1]/div[2]/div[1]/div[4]/ul[1]/li[5]/div[1]/section[1]/div[3]/div[1]/section[1]",
+          "idCls": ".mt15",
+          "tagName": "section",
+          "rectBox": {
+            "x": 26,
+            "y": 535,
+            "width": 772,
+            "height": 84,
+            "top": 535,
+            "right": 798,
+            "bottom": 619,
+            "left": 26
+          },
+          "idType": "idCls"
+        },
+        "ctype": "text",
+        "metaObj": "68f8a561e9bc62f3a66961f0",
+        "proper": "1f8c6553-6f1a-4f68-a1f8-75314ab52158",
+        "desc": ""
+      },
+      {
+        "key": "370760ea-6524-438b-8656-1af48d850a50",
+        "element": {
+          "xpath": "//*[@id=\"__layout\"]/div[1]/div[2]/div[1]/div[4]/ul[1]/li[5]/div[1]/section[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]",
+          "idCls": ".fs16-bold",
+          "tagName": "div",
+          "rectBox": {
+            "x": 70,
+            "y": 446,
+            "width": 59.3125,
+            "height": 22,
+            "top": 446,
+            "right": 129.3125,
+            "bottom": 468,
+            "left": 70
+          },
+          "idType": "idCls"
+        },
+        "ctype": "text",
+        "metaObj": "68f8a561e9bc62f3a66961f0",
+        "proper": "f5b85e0e-d756-4f27-b58d-f1904d7c9554",
+        "desc": ""
+      },
+      {
+        "key": "f299e28a-cad8-406c-834a-72283b492471",
+        "element": {
+          "xpath": "//*[@id=\"__layout\"]/div[1]/div[2]/div[1]/div[4]/ul[1]/li[5]/div[1]/section[1]/div[1]/div[1]/div[1]/div[2]/div[2]",
+          "idCls": ".fs13-ash",
+          "tagName": "div",
+          "rectBox": {
+            "x": 70,
+            "y": 468,
+            "width": 117.7125015258789,
+            "height": 18,
+            "top": 468,
+            "right": 187.7125015258789,
+            "bottom": 486,
+            "left": 70
+          },
+          "idType": "idCls"
+        },
+        "ctype": "text",
+        "metaObj": "68f8a561e9bc62f3a66961f0",
+        "proper": "ad96d764-71f7-407b-85ae-306edd42f792",
+        "desc": ""
+      }
+    ],
+    "strategy": "all"
+  },
+  "createdAt": "2025-10-23T03:00:08.917+0000",
+  "updatedAt": "2025-10-23T05:30:02.547+0000",
+  "__v": 0,
+  "fkTask": "68f8304be9bc62f3a6695e6b"
+}

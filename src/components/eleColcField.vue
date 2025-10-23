@@ -1,7 +1,7 @@
 <template>
   <FormGroup v-if="editing" :mapper="mapper" :form="editing">
     <template #element="{ formState }: any">
-      <EleSelField :form="formState" prop="element" @sel-ele-start="onSelElStart" />
+      <EleSelField :form="formState" prop="element" :emitter="emitter" />
     </template>
   </FormGroup>
   <a-button v-else class="w-full" type="primary" ghost @click="() => (editing = new BinMap())">
@@ -150,15 +150,6 @@ const moDict = computed<Record<string, MetaObj>>(() =>
 const metaEmitter = new TinyEmitter()
 const eleText = ref('')
 
-props.emitter.on('ele-selected', (selEle: PageEle) => {
-  if (editing.value) {
-    editing.value.element = selEle
-  }
-})
-
-function onSelElStart() {
-  props.emitter.emit('sel-ele')
-}
 function getEleIdenLabel(binMap: BinMap) {
   switch (binMap.element.idType) {
     case 'idCls':

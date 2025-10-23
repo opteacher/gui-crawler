@@ -1,5 +1,6 @@
 import PageEle from '@lib/types/pageEle'
 import { gnlCpy } from '@lib/utils'
+import MetaObj from './metaObj'
 
 export const ctypes = {
   text: { label: '文本', color: 'blue' },
@@ -11,7 +12,7 @@ export default class BinMap {
   key: string
   element: PageEle
   ctype: keyof typeof ctypes
-  metaObj?: string
+  metaObj?: string | MetaObj
   proper?: string
   desc: string
 
@@ -34,7 +35,7 @@ export default class BinMap {
   static copy(src: any, tgt?: BinMap, force = false) {
     return gnlCpy(BinMap, src, tgt, {
       force,
-      cpyMapper: { element: PageEle.copy }
+      cpyMapper: { element: PageEle.copy, metaObj: MetaObj.copy }
     })
   }
 }

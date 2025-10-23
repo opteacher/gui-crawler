@@ -9,17 +9,21 @@
       :hl-eles="hlEles"
       :sbar-wid="500"
       :emitter="emitter"
-      @update:sel-ele="onEleSelect"
     >
       <template #sideBottom>
-        <FormGroup :disabled="loading" class="p-5" :mapper="mapper" :form="curStep?.extra">
+        <FormGroup
+          :disabled="loading"
+          class="p-5 overflow-auto"
+          :mapper="mapper"
+          :form="curStep?.extra"
+        >
           <template v-if="curStep?.stype === 'collect'" #container>
             <EleSelField
               :form="curStep.extra"
               prop="container"
-              :selProp="selProp"
+              :emitter="emitter"
               :selEle="pgElSelRef?.selEle"
-              @sel-ele-start="onSelElStart"
+              @ele-selected="() => updateStepExtra()"
               @sel-ele-clear="onSelElClear"
               @ele-iden-change="onElIdChange"
             />
@@ -28,9 +32,9 @@
             <EleSelField
               :form="curStep.extra"
               prop="item"
-              :selProp="selProp"
+              :emitter="emitter"
               :selEle="pgElSelRef?.selEle"
-              @sel-ele-start="onSelElStart"
+              @ele-selected="() => updateStepExtra()"
               @sel-ele-clear="onSelElClear"
               @ele-iden-change="onElIdChange"
             />
@@ -63,7 +67,6 @@ import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
 import { TinyEmitter } from 'tiny-emitter'
 import { getProp, pickOrIgnore, setProp } from '@lib/utils'
-import PageEle from '@lib/types/pageEle'
 import EleSelField from '@/components/eleSelField.vue'
 import EleColcField from '@/components/eleColcField.vue'
 import MetaObj from '@/types/metaObj'
@@ -79,7 +82,6 @@ const mapper = ref<Mapper>(new Mapper({}))
 const emitter = new TinyEmitter()
 const loading = ref(false)
 const curStep = computed<Step | undefined>(() => getProp(stpDict.value, route.params.sid as string))
-const selProp = ref<string>('')
 const hlEles = computed(() =>
   [
     getProp(curStep.value, 'extra.container.xpath'),
@@ -116,10 +118,6 @@ async function refresh() {
   }
   const step = stpDict.value[stpKey]
   const stpMapper = mapperDict[step.stype as Stype]()
-  if (step.stype === 'collect') {
-    setProp(stpMapper, 'container.onClick', () => onSelElStart('container'))
-    setProp(stpMapper, 'item.onClick', () => onSelElStart('item'))
-  }
   mapper.value = new Mapper({
     ...stpMapper,
     execute: {
@@ -131,28 +129,6 @@ async function refresh() {
     }
   })
 }
-async function onEleSelect(selEle?: PageEle) {
-  switch (true) {
-    case curStep.value && curStep.value.stype === 'collect':
-      if (selEle) {
-        if (selProp.value) {
-          if (!route.params.sid) {
-            return
-          }
-          const sid = route.params.sid as string
-          setProp(stpDict.value, `${sid}.extra.${selProp.value}`, selEle)
-          await updateStepExtra()
-          selProp.value = ''
-        }
-        emitter.emit('ele-selected', selEle)
-      }
-      break
-  }
-}
-function onSelElStart(prop: string) {
-  emitter.emit('sel-ele')
-  selProp.value = selProp.value ? '' : prop
-}
 async function onSelElClear(prop: string) {
   if (!route.params.sid) {
     return
@@ -160,7 +136,7 @@ async function onSelElClear(prop: string) {
   const sid = route.params.sid as string
   getProp(stpDict.value, `${sid}.extra.${prop}`)?.reset()
   await updateStepExtra()
-  emitter.emit('clr-ele')
+  emitter.emit('stop-select')
 }
 async function onElIdChange(prop: string, iden: string) {
   if (!route.params.sid) {

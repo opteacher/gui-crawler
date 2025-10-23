@@ -2,7 +2,7 @@
   <a-button
     v-if="!getProp(form, prop) || !getProp(form, `${prop}.xpath`)"
     class="w-full"
-    :type="selProp === prop ? 'primary' : 'default'"
+    :type="selecting ? 'primary' : 'default'"
     @click="onSelEleStart"
   >
     选择元素
@@ -34,24 +34,32 @@ import { getProp, setProp } from '@lib/utils'
 import { CloseOutlined, DownOutlined } from '@ant-design/icons-vue'
 import { computed, PropType, toRef } from 'vue'
 import PageEle from '@lib/types/pageEle'
+import { TinyEmitter } from 'tiny-emitter'
 
 const props = defineProps({
   form: { type: Object, required: true },
   prop: { type: String, required: true },
-  selProp: { type: String, default: '' },
+  emitter: { type: TinyEmitter, required: true },
   selEle: { type: Object as PropType<PageEle>, default: null }
 })
-const emit = defineEmits(['selEleClear', 'selEleStart', 'eleIdenChange'])
-const selProp = toRef(props.selProp)
+const emit = defineEmits(['selEleClear', 'selEleStart', 'eleIdenChange', 'eleSelected'])
 const form = toRef(props.form)
 const idType = computed(() => getProp(form.value, `${props.prop}.idType`))
+const selecting = toRef(false)
+
+props.emitter.on('ele-selected', (ele?: PageEle) => {
+  if (selecting.value && ele) {
+    setProp(form.value, props.prop, PageEle.copy(ele))
+    emit('eleSelected', props.prop, form.value)
+  }
+})
 
 function onSelEleStart() {
   if (props.selEle) {
-    selProp.value = ''
-    setProp(form.value, props.prop, props.selEle)
+    setProp(form.value, props.prop, PageEle.copy(props.selEle))
   } else {
-    selProp.value = selProp.value ? '' : props.prop
+    selecting.value = true
+    props.emitter.emit('start-select')
     emit('selEleStart', props.prop)
   }
 }
@@ -60,8 +68,8 @@ function onElIdChange({ key }: any) {
   emit('eleIdenChange', props.prop, key)
 }
 function onSelEleClear() {
+  selecting.value = false
   setProp(form.value, props.prop, undefined)
-  selProp.value = ''
   emit('selEleClear', props.prop)
 }
 </script>
