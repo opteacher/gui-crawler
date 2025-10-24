@@ -1,5 +1,9 @@
 <template>
-  <FormGroup v-if="editing" :mapper="mapper" :form="editing" />
+  <FormGroup v-if="editing" :mapper="mapper" :form="editing">
+    <template #preOpersSFX="{ formState }: any">
+      <a-button @click="() => onPreOpersExec(formState)">执行操作</a-button>
+    </template>
+  </FormGroup>
   <a-button v-else class="w-full" type="primary" ghost @click="() => (editing = new BinMap())">
     添加采集元素
   </a-button>
@@ -59,6 +63,8 @@ import { setProp, getProp } from '@lib/utils'
 import { CollectExtra } from '@/types/step'
 import { MinusCircleOutlined } from '@ant-design/icons-vue'
 import { v4 as uuid } from 'uuid'
+import PgOper, { otypes } from '@lib/types/pgOper'
+import { Cond } from '@lib/types'
 
 const props = defineProps({
   emitter: { type: TinyEmitter, required: true },
@@ -74,7 +80,49 @@ const mapper = reactive(
     preOpers: {
       type: 'EditList',
       label: '前置操作',
-      mapper: new Mapper({})
+      inline: false,
+      lblProp: 'element.iden',
+      flatItem: false,
+      subProp: 'otype',
+      mapper: new Mapper({
+        element: {
+          type: 'PageEleSel',
+          label: '页面元素',
+          rules: [
+            {
+              required: true,
+              message: '必须选择待提取的页面元素！',
+              validator: (rule: any, value: PageEle, callback: (errMsg: string) => void) => {
+                callback(value.xpath ? undefined : rule.message)
+              }
+            }
+          ],
+          emitter: props.emitter,
+          seledStop: false
+        },
+        otype: {
+          type: 'Select',
+          label: '操作类型',
+          options: Object.entries(otypes).map(([value, label]) => ({ label, value }))
+        },
+        value: {
+          type: 'Input',
+          label: '输入值',
+          display: {
+            OR: [Cond.create('otype', '==', 'input'), Cond.create('otype', '==', 'select')]
+          }
+        },
+        encrypt: {
+          type: 'Switch',
+          label: '加密',
+          chkLabels: ['不加密', '加密'],
+          display: [Cond.create('otype', '==', 'input')]
+        }
+      }),
+      newFun: PgOper.copy,
+      onChange: (binMap: BinMap, opers: PgOper[]) => {
+        binMap.preOpers = opers
+      }
     },
     element: {
       type: 'PageEleSel',
@@ -88,7 +136,8 @@ const mapper = reactive(
           }
         }
       ],
-      emitter: props.emitter
+      emitter: props.emitter,
+      seledStop: false
     },
     ctype: {
       type: 'Select',
@@ -122,7 +171,8 @@ const mapper = reactive(
       type: 'Switch',
       label: '必要',
       placeholder: '必要的字段不存在，则该记录不会被爬取',
-      chkLabels: ['非必要', '必要']
+      chkLabels: ['非必要', '必要'],
+      onChange: (binMap: BinMap, to: boolean) => (binMap.required = to)
     },
     sbtBtns: {
       type: 'Buttons',
@@ -137,6 +187,7 @@ const mapper = reactive(
             const adjBinMap = setProp(BinMap.copy(binMap), 'key', uuid())
             stepExtra.value.binMaps.push(adjBinMap)
             emit('eleMetaBind', adjBinMap)
+            props.emitter.emit('stop-select')
             editing.value = null
           }
         },
@@ -160,10 +211,13 @@ const eleText = ref('')
 function getEleIdenLabel(binMap: BinMap) {
   switch (binMap.element.idType) {
     case 'idCls':
-      return binMap.element.iden
-        .split('.')
-        .filter(s => s)
-        .join('\n.')
+      return (
+        binMap.element.iden[0] +
+        binMap.element.iden
+          .split('.')
+          .filter(s => s)
+          .join('\n.')
+      )
     case 'xpath':
       return binMap.element.iden
         .split('/')
@@ -201,5 +255,9 @@ function onUnbinMapSubmit(binMap: BinMap) {
     1
   )
   emit('eleMetaUnbind', binMap)
+}
+function onPreOpersExec(binMap: BinMap) {
+  console.log(binMap)
+  props.emitter.emit('exec-opers', binMap.preOpers)
 }
 </script>

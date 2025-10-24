@@ -4,8 +4,6 @@ import Task from './task'
 import BinMap from './binMap'
 import PageEle from '@lib/types/pageEle'
 import PgOper from '@lib/types/pgOper'
-import { Cond } from '@lib/types'
-import { TinyEmitter } from 'tiny-emitter'
 
 export class GotoExtra {
   url: string

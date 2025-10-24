@@ -1,6 +1,7 @@
 import PageEle from '@lib/types/pageEle'
 import { gnlCpy } from '@lib/utils'
 import MetaObj from './metaObj'
+import PgOper from '@lib/types/pgOper'
 
 export const ctypes = {
   text: { label: '文本', color: 'blue' },
@@ -15,12 +16,16 @@ export default class BinMap {
   metaObj?: string | MetaObj
   proper?: string
   desc: string
+  required: boolean
+  preOpers: PgOper[]
 
   constructor() {
     this.key = ''
     this.element = new PageEle()
     this.ctype = 'text'
     this.desc = ''
+    this.required = false
+    this.preOpers = []
   }
 
   reset() {
@@ -30,12 +35,14 @@ export default class BinMap {
     this.metaObj = undefined
     this.proper = undefined
     this.desc = ''
+    this.required = false
+    this.preOpers = []
   }
 
   static copy(src: any, tgt?: BinMap, force = false) {
     return gnlCpy(BinMap, src, tgt, {
       force,
-      cpyMapper: { element: PageEle.copy, metaObj: MetaObj.copy }
+      cpyMapper: { element: PageEle.copy, metaObj: MetaObj.copy, preOpers: PgOper.copy }
     })
   }
 }
