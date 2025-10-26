@@ -4,7 +4,7 @@
     <PgEleSelect
       class="flex-1"
       ref="pgElSelRef"
-      :curURL="url"
+      :url="url"
       v-model:loading="loading"
       :hl-eles="hlEles"
       :sbar-wid="500"
@@ -39,7 +39,7 @@ import PgEleSelect from '@lib/components/PgEleSelect.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
-import Step from '@/types/step'
+import Step, { CollectExtra } from '@/types/step'
 import stpAPI from '@/apis/step'
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
@@ -63,11 +63,13 @@ const loading = ref(false)
 const curStep = computed<Step | undefined>(() => getProp(stpDict.value, route.params.sid as string))
 const hlEles = computed(() => {
   const step = getProp(stpDict.value, route.params.sid as string)
-  return [
-    getProp(step, 'extra.container.xpath'),
-    getProp(step, 'extra.item.xpath'),
-    ...getProp(step, 'extra.binMaps', []).map((bm: BinMap) => bm.element.xpath)
-  ].filter(v => v)
+  return Object.fromEntries(
+    [
+      ['采集容器', getProp(step, 'extra.container.xpath')],
+      ['采集项', getProp(step, 'extra.item.xpath')],
+      ...getProp(step, 'extra.binMaps', []).map((bm: BinMap) => [bm.desc, bm.element.xpath])
+    ].filter(([_k, v]) => v)
+  )
 })
 const metaObjs = computed(() => task.value?.fkMetaobjs as MetaObj[])
 
@@ -152,6 +154,7 @@ async function refresh() {
           style: 'button'
         }
       }
+      genBinMapDesc(task.value.fkMetaobjs as MetaObj[], curStep.value.extra)
       break
   }
   mapper.value = new Mapper({
@@ -184,5 +187,12 @@ async function onEleIdenChange(prop: string, iden: string) {
 }
 async function updateStepExtra(sid = route.params.sid as string) {
   return stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
+}
+function genBinMapDesc(metaObjs: MetaObj[], colcExtra: CollectExtra) {
+  for (const binMap of colcExtra.binMaps) {
+    const metaObj = metaObjs.find(mo => mo.key === binMap.metaObj)
+    const binProp = metaObj?.propers.find(p => p.key === binMap.proper)
+    binMap.desc = `${metaObj?.label}.${binProp?.label}`
+  }
 }
 </script>

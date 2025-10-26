@@ -1,9 +1,5 @@
 <template>
-  <FormGroup v-if="editing" :mapper="mapper" :form="editing">
-    <template #preOpersSFX="{ formState }: any">
-      <a-button @click="() => onPreOpersExec(formState)">执行操作</a-button>
-    </template>
-  </FormGroup>
+  <FormGroup v-if="editing" :mapper="mapper" :form="editing" />
   <a-button v-else class="w-full" type="primary" ghost @click="() => (editing = new BinMap())">
     添加采集元素
   </a-button>
@@ -18,7 +14,7 @@
     <a-descriptions-item v-for="binMap in stepExtra.binMaps">
       <template #label>
         <a-space>
-          <a @click="() => props.emitter.emit('iden-ele', binMap.element.xpath)">
+          <a @click="() => onEleIdClick(binMap)">
             <pre class="mb-0">{{ getEleIdenLabel(binMap) }}</pre>
           </a>
           <a-tag class="me-0" :color="ctypes[binMap.ctype].color">
@@ -59,7 +55,7 @@ import BinMap, { ctypes } from '../types/binMap'
 import { TinyEmitter } from 'tiny-emitter'
 import PageEle from '@lib/types/pageEle'
 import MetaObj, { metaMapper } from '@/types/metaObj'
-import { setProp, getProp } from '@lib/utils'
+import { setProp, getProp, pickOrIgnore } from '@lib/utils'
 import { CollectExtra } from '@/types/step'
 import { MinusCircleOutlined } from '@ant-design/icons-vue'
 import { v4 as uuid } from 'uuid'
@@ -124,6 +120,13 @@ const mapper = reactive(
         binMap.preOpers = opers
       }
     },
+    execOpers: {
+      type: 'Button',
+      inner: '执行操作',
+      offset: 4,
+      display: (binMap: BinMap) => binMap.preOpers.length,
+      onClick: (binMap: BinMap) => onPreOpersExec(binMap)
+    },
     element: {
       type: 'PageEleSel',
       label: '页面元素',
@@ -184,7 +187,11 @@ const mapper = reactive(
           ghost: false,
           htmlType: 'submit',
           onClick: (binMap: BinMap) => {
-            const adjBinMap = setProp(BinMap.copy(binMap), 'key', uuid())
+            const adjBinMap = BinMap.copy(binMap)
+            adjBinMap.key = uuid()
+            const metaObj = props.metaObjs.find(mo => mo.key === adjBinMap.metaObj)
+            const binProp = metaObj?.propers.find(p => p.key === adjBinMap.proper)
+            adjBinMap.desc = `${metaObj?.name}.${binProp?.name}`
             stepExtra.value.binMaps.push(adjBinMap)
             emit('eleMetaBind', adjBinMap)
             props.emitter.emit('stop-select')
@@ -256,8 +263,17 @@ function onUnbinMapSubmit(binMap: BinMap) {
   )
   emit('eleMetaUnbind', binMap)
 }
-function onPreOpersExec(binMap: BinMap) {
-  console.log(binMap)
-  props.emitter.emit('exec-opers', binMap.preOpers)
+async function onPreOpersExec(binMap: BinMap) {
+  const preOpers = binMap.preOpers.map(oper => ({
+    element: setProp(PageEle.copy(oper.element), 'idType', 'xpath'),
+    ...pickOrIgnore(oper, ['element'])
+  }))
+  await new Promise(resolve => {
+    props.emitter.emit('exec-opers', preOpers, resolve)
+  })
+}
+async function onEleIdClick(binMap: BinMap) {
+  await onPreOpersExec(binMap)
+  props.emitter.emit('iden-ele', binMap.element.xpath)
 }
 </script>
