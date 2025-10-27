@@ -191,7 +191,7 @@ const mapper = reactive(
             adjBinMap.key = uuid()
             const metaObj = props.metaObjs.find(mo => mo.key === adjBinMap.metaObj)
             const binProp = metaObj?.propers.find(p => p.key === adjBinMap.proper)
-            adjBinMap.desc = `${metaObj?.name}.${binProp?.name}`
+            adjBinMap.desc = `${metaObj?.label}.${binProp?.label}`
             stepExtra.value.binMaps.push(adjBinMap)
             emit('eleMetaBind', adjBinMap)
             props.emitter.emit('stop-select')
