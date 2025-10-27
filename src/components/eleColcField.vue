@@ -246,6 +246,8 @@ function onMetaObjClick(binMap: BinMap) {
   })
 }
 async function genBinEleText(binMap: BinMap) {
+  const index = await props.webview.executeJavaScript('window.history.length')
+  await onPreOpersExec(binMap)
   switch (binMap.ctype) {
     case 'text':
       eleText.value = await props.webview.executeJavaScript(
@@ -255,6 +257,7 @@ async function genBinEleText(binMap: BinMap) {
     default:
       eleText.value = ''
   }
+  props.webview.goToIndex(index - 1)
 }
 function onUnbinMapSubmit(binMap: BinMap) {
   stepExtra.value.binMaps.splice(

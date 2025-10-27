@@ -61,10 +61,14 @@
       </template>
     </PgEleSelect>
   </div>
-  <a-modal title="爬取结果" v-model:open="crawlPvw.resVsb" width="80vw">
+  <a-modal
+    title="爬取结果"
+    v-model:open="crawlPvw.resVsb"
+    width="80vw"
+    :bodyStyle="{ height: '60vh' }"
+  >
     <EditableTable
       v-for="metaObj in (task?.fkMetaobjs as MetaObj[])"
-      class="h-[60vh]"
       :title="metaObj.label"
       :api="{ all: async () => crawlPvw.data[metaObj.key] }"
       :columns="metaObj.propers.map(prop => new Column(prop.label, prop.name))"
@@ -268,17 +272,7 @@ async function refresh() {
                   for (const item of items) {
                     const colcItem = Object.fromEntries(metas.map(mo => [mo.key, {}]))
                     for (const binMap of ${JSON.stringify(extra.binMaps)}) {
-                      for (const oper of binMap.preOpers) {
-                        const ele = getEle(oper.element)
-                        switch (oper.otype) {
-                          case 'input':
-                            ele.value = oper.value
-                            break
-                          case 'click':
-                            ele.click()
-                            break
-                        }
-                      }
+                      // 无法在单个视口的DOM环境中做页面跳转
                       const ele = getEle(binMap.element, item)
                       if (!ele) {
                         continue
