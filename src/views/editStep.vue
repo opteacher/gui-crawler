@@ -222,6 +222,7 @@ async function refresh() {
       type: 'Button',
       offset: 4,
       inner: '预览该步骤',
+      loading: () => loading.value,
       fullWid: true,
       ghost: false,
       onClick: async (form: GotoExtra | CollectExtra) => {
@@ -233,27 +234,37 @@ async function refresh() {
             {
               const extra = form as CollectExtra
               const metaObjs = task.value?.fkMetaobjs as MetaObj[]
-              await pgElSelRef.value?.webviewRef?.executeJavaScript(`
-                const container = ${getEleByJS(extra.container)}
-                if (!container) {
-                  throw new Error('未找到采集容器！')
-                }
-                const items = ${getEleByJS(extra.item, 'container', false)}
-                if (!items || !items.length) {
-                  throw new Error('未找到一篇文章！')
-                }
-              `)
+              const getCtnrAndItem = () =>
+                pgElSelRef.value?.webviewRef?.executeJavaScript(`
+                  const container = ${getEleByJS(extra.container)}
+                  if (!container) {
+                    throw new Error('未找到采集容器！')
+                  }
+                  const items = ${getEleByJS(extra.item, 'container', false)}
+                  if (!items || !items.length) {
+                    throw new Error('未找到一篇文章！')
+                  }
+                `)
+              await getCtnrAndItem()
               const itmLen = await pgElSelRef.value?.webviewRef?.executeJavaScript('items.length')
               const colcData = Object.fromEntries(metaObjs.map(mo => [mo.key, [] as any[]]))
               for (let i = 0; i < itmLen; ++i) {
                 const colcItem = Object.fromEntries(metaObjs.map(mo => [mo.key, {}]))
                 for (const binMap of extra.binMaps) {
                   const orgIdx = await pgElSelRef.value?.webviewRef?.executeJavaScript(
-                    'window.history.length'
+                    'navigation.entries().find(entry => entry.sameDocument).index'
                   )
-                  console.log(orgIdx)
-                  await new Promise(resolve => emitter.emit('exec-opers', binMap.preOpers, resolve))
-                  const ele = getEleByJS(binMap.element, `items[${i}]`)
+                  await new Promise(resolve =>
+                    emitter.emit('exec-opers', binMap.preOpers, resolve, `items[${i}]`)
+                  )
+                  const curIdx = await pgElSelRef.value?.webviewRef?.executeJavaScript(
+                    'navigation.entries().find(entry => entry.sameDocument).index'
+                  )
+                  // 前置操作未造成页面变化，则使用items[i]作为父；反之页面已变，则全页面搜索元素
+                  const ele = getEleByJS(
+                    binMap.element,
+                    orgIdx === curIdx ? `items[${i}]` : undefined
+                  )
                   const binMeta = metaObjs.find(m => m.key === binMap.metaObj)
                   const binProp = binMeta?.propers.find(p => p.key === binMap.proper)
                   if (!binMeta || !binProp) {
@@ -274,11 +285,11 @@ async function refresh() {
                   } catch (e) {
                     continue
                   } finally {
-                    const curIdx = await pgElSelRef.value?.webviewRef?.executeJavaScript(
-                      'window.history.length'
-                    )
-                    if (curIdx !== orgIdx) {
-                      emitter.emit('goto-history', orgIdx - 1)
+                    if (orgIdx !== curIdx) {
+                      // 页面跳转，回到原始页面
+                      emitter.emit('goto-history', orgIdx)
+                      // 页面跳转，重新获取容器和项
+                      await getCtnrAndItem()
                     }
                   }
                 }
