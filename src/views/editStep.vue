@@ -92,7 +92,7 @@ import stpAPI from '@/apis/step'
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
 import { TinyEmitter } from 'tiny-emitter'
-import { getProp, pickOrIgnore, setProp } from '@lib/utils'
+import { getProp, pickOrIgnore, setProp, getEleByJS } from '@lib/utils'
 import EleColcField from '@/components/eleColcField.vue'
 import MetaObj from '@/types/metaObj'
 import BinMap from '@/types/binMap'
@@ -233,69 +233,62 @@ async function refresh() {
             {
               const extra = form as CollectExtra
               const metaObjs = task.value?.fkMetaobjs as MetaObj[]
-              crawlPvw.data = await pgElSelRef.value?.webviewRef?.executeJavaScript(`
-                (function () {
-                  const getEle = function (pgEl, parent = document, first = true) {
-                    let ele = ''
-                    switch (pgEl.idType) {
-                      case 'idCls':
-                        if (pgEl.idCls.startsWith('.')) {
-                          const clazz = pgEl.idCls.substring(1).split('.').join(' ')
-                          ele = Array.from(parent.getElementsByClassName(clazz))
-                          ele = first ? ele.shift() : ele
-                        } else if (pgEl.idCls.startsWith('#')) {
-                          ele = parent.getElementById(pgEl.idCls.substring(1))
-                        } else {
-                          throw new Error('位置的元素标记！')
-                        }
-                        break
-                      case 'xpath':
-                        ele = parent.evaluate(pgEl.xpath, parent).iterateNext()
-                        break
-                      case 'tagName':
-                        ele = Array.from(parent.getElementsByTagName(pgEl.tagName))
-                        ele = first ? ele.shift() : ele
-                        break
-                    }
-                    return ele
-                  }
-                  const container = getEle(${JSON.stringify(extra.container)})
-                  if (!container) {
-                    throw new Error('未找到采集容器！')
-                  }
-                  const items = getEle(${JSON.stringify(extra.item)}, container, false)
-                  if (!items || !items.length) {
-                    throw new Error('未找到一篇文章！')
-                  }
-                  const metas = ${JSON.stringify(metaObjs)}
-                  const colcData = Object.fromEntries(metas.map(mo => [mo.key, []]))
-                  for (const item of items) {
-                    const colcItem = Object.fromEntries(metas.map(mo => [mo.key, {}]))
-                    for (const binMap of ${JSON.stringify(extra.binMaps)}) {
-                      // 无法在单个视口的DOM环境中做页面跳转
-                      const ele = getEle(binMap.element, item)
-                      if (!ele) {
-                        continue
-                      }
-                      const binMeta = metas.find(m => m.key === binMap.metaObj)
-                      const binProp = binMeta.propers.find(p => p.key === binMap.proper)
-                      switch (binMap.ctype) {
-                        case 'text':
-                          colcItem[binMeta.key][binProp.name] = ele.innerText
-                          break
-                        case 'file':
-                          break
-                      }
-                    }
-                    for (const [key, val] of Object.entries(colcItem)) {
-                      if (Object.keys(val).length) {
-                        colcData[key].push(val)
-                      }
-                    }
-                  }
-                  return colcData
-                })()
+              await pgElSelRef.value?.webviewRef?.executeJavaScript(`
+                const container = ${getEleByJS(extra.container)}
+                if (!container) {
+                  throw new Error('未找到采集容器！')
+                }
+                const items = ${getEleByJS(extra.item, 'container', false)}
+                if (!items || !items.length) {
+                  throw new Error('未找到一篇文章！')
+                }
               `)
+              const itmLen = await pgElSelRef.value?.webviewRef?.executeJavaScript('items.length')
+              const colcData = Object.fromEntries(metaObjs.map(mo => [mo.key, [] as any[]]))
+              for (let i = 0; i < itmLen; ++i) {
+                const colcItem = Object.fromEntries(metaObjs.map(mo => [mo.key, {}]))
+                for (const binMap of extra.binMaps) {
+                  const orgIdx = await pgElSelRef.value?.webviewRef?.executeJavaScript(
+                    'window.history.length'
+                  )
+                  console.log(orgIdx)
+                  await new Promise(resolve => emitter.emit('exec-opers', binMap.preOpers, resolve))
+                  const ele = getEleByJS(binMap.element, `items[${i}]`)
+                  const binMeta = metaObjs.find(m => m.key === binMap.metaObj)
+                  const binProp = binMeta?.propers.find(p => p.key === binMap.proper)
+                  if (!binMeta || !binProp) {
+                    continue
+                  }
+                  try {
+                    switch (binMap.ctype) {
+                      case 'text':
+                        setProp(
+                          colcItem,
+                          `${binMeta.key}.${binProp.name}`,
+                          await pgElSelRef.value?.webviewRef?.executeJavaScript(`${ele}.innerText`)
+                        )
+                        break
+                      case 'file':
+                        break
+                    }
+                  } catch (e) {
+                    continue
+                  } finally {
+                    const curIdx = await pgElSelRef.value?.webviewRef?.executeJavaScript(
+                      'window.history.length'
+                    )
+                    if (curIdx !== orgIdx) {
+                      emitter.emit('goto-history', orgIdx - 1)
+                    }
+                  }
+                }
+                for (const [key, val] of Object.entries(colcItem)) {
+                  if (Object.keys(val).length) {
+                    colcData[key].push(val)
+                  }
+                }
+              }
+              crawlPvw.data = colcData
               crawlPvw.resVsb = true
             }
             break
