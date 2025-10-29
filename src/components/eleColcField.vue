@@ -14,10 +14,16 @@
     <a-descriptions-item v-for="binMap in stepExtra.binMaps">
       <template #label>
         <a-space>
-          <a-tooltip v-if="binMap.required">
-            <template #title>必须，为空则跳过</template>
-            <a class="text-[#ff4d4f] font-bold text-xl">*</a>
-          </a-tooltip>
+          <div class="flex flex-col">
+            <a-tooltip v-if="binMap.required">
+              <template #title>必须，为空则跳过</template>
+              <a class="text-[#ff4d4f] font-bold text-xl">*</a>
+            </a-tooltip>
+            <a-tooltip v-if="binMap.unqProp">
+              <template #title>唯一字段，重复则跳过</template>
+              <a class="text-[#ff4d4f] font-bold text-l">1</a>
+            </a-tooltip>
+          </div>
           <a @click="() => onEleIdClick(binMap)">
             <pre class="mb-0">{{ getEleIdenLabel(binMap) }}</pre>
           </a>

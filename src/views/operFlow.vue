@@ -236,7 +236,29 @@ function onMetaDelClick(meta: MetaObj) {
   })
 }
 async function onShowCodesClick() {
-  task.value.code = await tskAPI.getCode(route.params.tid as string)
+  const tskKey = route.params.tid as string
+  const stpDict = Object.fromEntries(
+    await stpAPI
+      .all({ axiosConfig: { params: { fkTask: tskKey } } })
+      .then(steps => steps.map(stp => [stp.key, stp]))
+  )
+  const cdDict = await tskAPI.getCode(tskKey)
+  const codes = ['const ctx = {}']
+  Object.entries(cdDict).map(([stpKey, strFun]) => {
+    const step = stpDict[stpKey]
+    codes.push(
+      [
+        '/***',
+        ' * ' + step.title,
+        step.desc ? ' * ' + step.desc : '',
+        '**/',
+        `await (${strFun})(ctx, ${JSON.stringify(step)}, ${JSON.stringify(task.value.fkMetaobjs)})`
+      ]
+        .filter(l => l)
+        .join('\n')
+    )
+  })
+  task.value.code = codes.join('\n\n')
 }
 function onExecToStepClick(step: Step) {
   const tskKey = route.params.tid as string

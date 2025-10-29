@@ -16,5 +16,5 @@ export default {
       action: 'job',
       axiosConfig: { params: { name } }
     }),
-  getCode: (tid: string) => reqGet<string>('task', tid, { type: 'api', action: 'code' })
+  getCode: (tid: string) => reqGet('task', tid, { type: 'api', action: 'code' })
 }
