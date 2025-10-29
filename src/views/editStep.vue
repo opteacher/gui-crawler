@@ -73,11 +73,16 @@
       :api="{ all: async () => crawlPvw.data[metaObj.key] }"
       :columns="metaObj.propers.map(prop => new Column(prop.label, prop.name))"
       :new-fun="() => Object.fromEntries(metaObj.propers.map(p => [p.name, typeDftVal(p.ptype)]))"
+      :emitter="crawlPvw.emitter"
       size="small"
       :addable="false"
       :editable="false"
       :delable="false"
-    />
+    >
+      <template #extra>
+        <a-button type="primary" :loading="loading" @click="() => onStoreToDB(metaObj.key)">保存到数据库</a-button>
+      </template>
+    </EditableTable>
   </a-modal>
 </template>
 
@@ -102,9 +107,12 @@ import { LeftOutlined, RightOutlined, SendOutlined, SyncOutlined } from '@ant-de
 import EditableTable from '@lib/components/EditableTable.vue'
 import Column from '@lib/types/column'
 import { typeDftVal } from '@lib/types'
+import TurndownService from 'turndown'
+import rcdAPI from '@/apis/record'
 
 const route = useRoute()
 const router = useRouter()
+const tdSvc = new TurndownService()
 const curURL = ref('')
 const url = ref('')
 const pgElSelRef = ref<InstanceType<typeof PgEleSelect>>()
@@ -127,6 +135,7 @@ const hlEles = computed(() => {
 const metaObjs = computed(() => task.value?.fkMetaobjs as MetaObj[])
 const crawlPvw = reactive({
   resVsb: false,
+  emitter: new TinyEmitter(),
   data: {} as Record<string, any[]>
 })
 
@@ -208,8 +217,9 @@ async function refresh() {
             { label: '只采第一条', value: 'first' }
           ],
           style: 'button',
-          onChange: (form: CollectExtra, to: 'all' | 'first') => {
+          onChange: async (form: CollectExtra, to: 'all' | 'first') => {
             form.strategy = to
+            await updateStepExtra()
           }
         }
       }
@@ -234,8 +244,9 @@ async function refresh() {
             {
               const extra = form as CollectExtra
               const metaObjs = task.value?.fkMetaobjs as MetaObj[]
+              const webview = pgElSelRef.value?.webviewRef
               const getCtnrAndItem = () =>
-                pgElSelRef.value?.webviewRef?.executeJavaScript(`
+                webview?.executeJavaScript(`
                   const container = ${getEleByJS(extra.container)}
                   if (!container) {
                     throw new Error('未找到采集容器！')
@@ -246,18 +257,18 @@ async function refresh() {
                   }
                 `)
               await getCtnrAndItem()
-              const itmLen = await pgElSelRef.value?.webviewRef?.executeJavaScript('items.length')
+              const itmLen = await webview?.executeJavaScript('items.length')
               const colcData = Object.fromEntries(metaObjs.map(mo => [mo.key, [] as any[]]))
-              for (let i = 0; i < itmLen; ++i) {
+              for (let i = 0; i < (extra.strategy === 'first' ? 1 : itmLen); ++i) {
                 const colcItem = Object.fromEntries(metaObjs.map(mo => [mo.key, {}]))
                 for (const binMap of extra.binMaps) {
-                  const orgIdx = await pgElSelRef.value?.webviewRef?.executeJavaScript(
+                  const orgIdx = await webview?.executeJavaScript(
                     'navigation.entries().find(entry => entry.sameDocument).index'
                   )
                   await new Promise(resolve =>
                     emitter.emit('exec-opers', binMap.preOpers, resolve, `items[${i}]`)
                   )
-                  const curIdx = await pgElSelRef.value?.webviewRef?.executeJavaScript(
+                  const curIdx = await webview?.executeJavaScript(
                     'navigation.entries().find(entry => entry.sameDocument).index'
                   )
                   // 前置操作未造成页面变化，则使用items[i]作为父；反之页面已变，则全页面搜索元素
@@ -276,7 +287,14 @@ async function refresh() {
                         setProp(
                           colcItem,
                           `${binMeta.key}.${binProp.name}`,
-                          await pgElSelRef.value?.webviewRef?.executeJavaScript(`${ele}.innerText`)
+                          await webview?.executeJavaScript(`${ele}.innerText`)
+                        )
+                        break
+                      case 'markdown':
+                        setProp(
+                          colcItem,
+                          `${binMeta.key}.${binProp.name}`,
+                          tdSvc.turndown(await webview?.executeJavaScript(`${ele}.outerHTML`))
                         )
                         break
                       case 'file':
@@ -341,5 +359,15 @@ function onGotoByURL(u?: string) {
   }
   curURL.value = url.value
   emitter.emit('reload')
+}
+async function onStoreToDB(moKey: string) {
+  loading.value = true
+  crawlPvw.emitter.emit('load', true)
+  for (const record of crawlPvw.data[moKey]) {
+    await rcdAPI(route.params.tid as string).add({ data: record }, moKey)
+  }
+  loading.value = false
+  crawlPvw.emitter.emit('load', false)
+  crawlPvw.resVsb = false
 }
 </script>

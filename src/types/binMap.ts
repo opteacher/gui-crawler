@@ -5,8 +5,8 @@ import PgOper from '@lib/types/pgOper'
 
 export const ctypes = {
   text: { label: '文本', color: 'blue' },
-  file: { label: '文件', color: 'cyan' },
-  picture: { label: '图片', color: 'purple' }
+  markdown: { label: 'MarkDown', color: 'orange' },
+  file: { label: '文件/图片', color: 'cyan' }
 }
 
 export default class BinMap {
@@ -17,6 +17,7 @@ export default class BinMap {
   proper?: string
   desc: string
   required: boolean
+  unqProp: boolean // 唯一字段
   preOpers: PgOper[]
 
   constructor() {
@@ -25,6 +26,7 @@ export default class BinMap {
     this.ctype = 'text'
     this.desc = ''
     this.required = false
+    this.unqProp = false
     this.preOpers = []
   }
 
@@ -36,6 +38,7 @@ export default class BinMap {
     this.proper = undefined
     this.desc = ''
     this.required = false
+    this.unqProp = false
     this.preOpers = []
   }
 

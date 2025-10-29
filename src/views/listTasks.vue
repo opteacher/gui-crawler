@@ -3,12 +3,15 @@ import Task, { units } from '@/types/task'
 import EditableTable from '@lib/components/EditableTable.vue'
 import Column from '@lib/types/column'
 import Mapper from '@lib/types/mapper'
-import { newOne, getProp } from '@lib/utils'
+import { newOne, getProp, until } from '@lib/utils'
 import { onMounted, reactive } from 'vue'
 import tskAPI from '@/apis/task'
 import { PlayCircleOutlined, PauseCircleOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { TinyEmitter } from 'tiny-emitter'
 import router from '@/router'
+import MetaObj from '@/types/metaObj'
+import rcdAPI from '@/apis/record'
+import { typeDftVal } from '@lib/types'
 
 const columns = reactive<Column[]>([
   new Column('名称', 'name'),
@@ -44,6 +47,9 @@ const mapper = reactive<Mapper>(
   })
 )
 const emitter = new TinyEmitter()
+const records = reactive({
+  emitter: new TinyEmitter()
+})
 
 onMounted(() => {})
 
@@ -57,6 +63,21 @@ async function onTaskStop(task: Task) {
   emitter.emit('refresh')
   emitter.emit('update:auto-refresh', false)
 }
+async function onRecordExpand(task: Task) {
+  records.emitter.emit('load', true)
+  task.fkMetaobjs = await tskAPI.get(task.key).then(tsk => tsk.fkMetaobjs)
+  task.rcdDict = {}
+  for (const record of await rcdAPI(task.key).all()) {
+    const moKey = record.fkMetaobj as string
+    if (moKey in task.rcdDict) {
+      task.rcdDict[moKey].push(record.data)
+    } else {
+      task.rcdDict[moKey] = [record.data]
+    }
+  }
+  records.emitter.emit('load', false)
+  records.emitter.emit('refresh')
+}
 </script>
 
 <template>
@@ -69,6 +90,7 @@ async function onTaskStop(task: Task) {
     :emitter="emitter"
     :ref-opns="['auto']"
     :new-fun="() => newOne(Task)"
+    @expand="onRecordExpand"
   >
     <template #start="{ record }: any">
       {{ record.start.format('YYYY年MM月DD日 - HH:mm:ss') }}
@@ -121,6 +143,22 @@ async function onTaskStop(task: Task) {
       >
         设计流程
       </a-button>
+    </template>
+    <template #expandedRowRender="{ record: task }: { record: Task }">
+      <EditableTable
+        v-for="metaObj in (task.fkMetaobjs as MetaObj[])"
+        :title="metaObj.label"
+        :api="{ all: async () => task.rcdDict[metaObj.key] || [] }"
+        :columns="(metaObj.propers || []).map(p => new Column(p.label, p.name))"
+        :new-fun="
+          () => Object.fromEntries((metaObj.propers || []).map(p => [p.name, typeDftVal(p.ptype)]))
+        "
+        :emitter="records.emitter"
+        size="small"
+        :addable="false"
+        :editable="false"
+        :delable="false"
+      />
     </template>
   </EditableTable>
 </template>

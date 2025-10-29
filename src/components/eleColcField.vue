@@ -14,6 +14,10 @@
     <a-descriptions-item v-for="binMap in stepExtra.binMaps">
       <template #label>
         <a-space>
+          <a-tooltip v-if="binMap.required">
+            <template #title>必须，为空则跳过</template>
+            <a class="text-[#ff4d4f] font-bold text-xl">*</a>
+          </a-tooltip>
           <a @click="() => onEleIdClick(binMap)">
             <pre class="mb-0">{{ getEleIdenLabel(binMap) }}</pre>
           </a>
@@ -43,7 +47,16 @@
       </a-space>
     </a-descriptions-item>
   </a-descriptions>
-  <FormDialog title="元对象" width="40vw" :mapper="new Mapper(metaMapper)" :emitter="metaEmitter" />
+  <FormDialog title="元对象" width="40vw" :mapper="new Mapper(mapper)" :emitter="metaEmitter">
+    <template #preOpersVW="{ formState }: { formState: BinMap }">
+      <ul class="list-none ps-0 mb-0">
+        <li v-for="oper in formState.preOpers">
+          {{ oper.element.iden }}
+          <a-tag class="ms-2" :color="otypes[oper.otype].color">{{ oper.otype }}</a-tag>
+        </li>
+      </ul>
+    </template>
+  </FormDialog>
 </template>
 
 <script setup lang="ts">
@@ -54,13 +67,14 @@ import { computed, PropType, reactive, ref, toRef } from 'vue'
 import BinMap, { ctypes } from '../types/binMap'
 import { TinyEmitter } from 'tiny-emitter'
 import PageEle from '@lib/types/pageEle'
-import MetaObj, { metaMapper } from '@/types/metaObj'
+import MetaObj from '@/types/metaObj'
 import { setProp, getProp, pickOrIgnore } from '@lib/utils'
 import { CollectExtra } from '@/types/step'
 import { MinusCircleOutlined } from '@ant-design/icons-vue'
 import { v4 as uuid } from 'uuid'
 import PgOper, { otypes } from '@lib/types/pgOper'
 import { Cond } from '@lib/types'
+import TurndownService from 'turndown'
 
 const props = defineProps({
   emitter: { type: TinyEmitter, required: true },
@@ -69,6 +83,7 @@ const props = defineProps({
   webview: { type: Object as PropType<Electron.WebviewTag>, default: null }
 })
 const emit = defineEmits(['eleMetaBind', 'eleMetaUnbind'])
+const tdSvc = new TurndownService()
 const stepExtra = toRef(props.stepExtra)
 const editing = ref<BinMap | null>(null)
 const mapper = reactive(
@@ -99,7 +114,7 @@ const mapper = reactive(
         otype: {
           type: 'Select',
           label: '操作类型',
-          options: Object.entries(otypes).map(([value, label]) => ({ label, value }))
+          options: Object.entries(otypes).map(([value, { label }]) => ({ label, value }))
         },
         value: {
           type: 'Input',
@@ -146,7 +161,8 @@ const mapper = reactive(
       type: 'Select',
       label: '提取内容',
       rules: [{ required: true, message: '必须选择元素的提取内容！', trigger: 'change' }],
-      options: Object.entries(ctypes).map(([value, { label }]) => ({ label, value }))
+      options: Object.entries(ctypes).map(([value, { label }]) => ({ label, value })),
+      onChange: (binMap: BinMap, ctype: keyof typeof ctypes) => (binMap.ctype = ctype)
     },
     metaObj: {
       type: 'Select',
@@ -176,6 +192,11 @@ const mapper = reactive(
       placeholder: '必要的字段不存在，则该记录不会被爬取',
       chkLabels: ['非必要', '必要'],
       onChange: (binMap: BinMap, to: boolean) => (binMap.required = to)
+    },
+    unqProp: {
+      type: 'Switch',
+      label: '唯一字段',
+      onChange: (binMap: BinMap, to: boolean) => (binMap.unqProp = to)
     },
     sbtBtns: {
       type: 'Buttons',
@@ -241,7 +262,7 @@ function getMetaPropLabel(binMap: BinMap) {
 function onMetaObjClick(binMap: BinMap) {
   metaEmitter.emit('update:visible', {
     show: true,
-    object: moDict.value[binMap.metaObj as string],
+    object: binMap,
     viewOnly: true
   })
 }
@@ -255,6 +276,13 @@ async function genBinEleText(binMap: BinMap) {
       eleText.value = await props.webview.executeJavaScript(
         `document.evaluate('${binMap.element.xpath}', document).iterateNext().textContent`
       )
+      break
+    case 'markdown':
+      eleText.value = await props.webview
+        .executeJavaScript(
+          `document.evaluate('${binMap.element.xpath}', document).iterateNext().outerHTML`
+        )
+        .then(html => tdSvc.turndown(html))
       break
     default:
       eleText.value = ''
