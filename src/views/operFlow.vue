@@ -108,6 +108,11 @@ const task = ref<Task>(new Task())
 const steps = reactive<Step[]>([])
 const mapperDict = {
   goto: {
+    chromePath: {
+      type: 'Input',
+      label: 'Chrome启动文件',
+      placeholder: '不给出的话使用系统自带chrome浏览器'
+    },
     url: {
       type: 'Input',
       label: '地址',

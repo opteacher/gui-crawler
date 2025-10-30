@@ -57,6 +57,11 @@
               @ele-meta-unbind="() => updateStepExtra()"
             />
           </template>
+          <template v-if="curStep?.stype === 'goto'" #chromePathSFX="{ formState }">
+            <a-button @click="() => onGetChromePath(formState as GotoExtra)">
+              获取本地启动文件
+            </a-button>
+          </template>
         </FormGroup>
       </template>
     </PgEleSelect>
@@ -80,7 +85,9 @@
       :delable="false"
     >
       <template #extra>
-        <a-button type="primary" :loading="loading" @click="() => onStoreToDB(metaObj.key)">保存到数据库</a-button>
+        <a-button type="primary" :loading="loading" @click="() => onStoreToDB(metaObj.key)">
+          保存到数据库
+        </a-button>
       </template>
     </EditableTable>
   </a-modal>
@@ -109,6 +116,7 @@ import Column from '@lib/types/column'
 import { typeDftVal } from '@lib/types'
 import TurndownService from 'turndown'
 import rcdAPI from '@/apis/record'
+import glbAPI from '@/apis/global'
 
 const route = useRoute()
 const router = useRouter()
@@ -170,14 +178,27 @@ async function refresh() {
   switch (curStep.value?.stype) {
     case 'goto':
       stpMapper = {
+        chromePath: {
+          type: 'Input',
+          label: 'Chrome启动文件',
+          placeholder: '不给出的话使用系统自带chrome浏览器',
+          onChange: (form: GotoExtra, to: string) => (form.chromePath = to),
+          onBlur: () => updateStepExtra()
+        },
         url: {
           type: 'Input',
           label: '地址',
-          rules: [{ required: true, message: '必须输入网站地址！' }]
+          rules: [{ required: true, message: '必须输入网站地址！' }],
+          onChange: (form: GotoExtra, to: string) => (form.url = to),
+          onBlur: () => updateStepExtra()
         },
         newPage: {
           type: 'Switch',
-          label: '新页面打开'
+          label: '新页面打开',
+          onChange: async (form: GotoExtra, to: boolean) => {
+            form.newPage = to
+            await updateStepExtra()
+          }
         }
       }
       break
@@ -369,5 +390,8 @@ async function onStoreToDB(moKey: string) {
   loading.value = false
   crawlPvw.emitter.emit('load', false)
   crawlPvw.resVsb = false
+}
+async function onGetChromePath(extra: GotoExtra) {
+  extra.chromePath = await glbAPI.chrome.path()
 }
 </script>

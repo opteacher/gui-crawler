@@ -6,15 +6,18 @@ import PageEle from '@lib/types/pageEle'
 import PgOper from '@lib/types/pgOper'
 
 export class GotoExtra {
+  chromePath: string
   url: string
   newPage: boolean
 
   constructor() {
+    this.chromePath =''
     this.url = ''
     this.newPage = false
   }
 
   reset() {
+    this.chromePath =''
     this.url = ''
     this.newPage = false
   }

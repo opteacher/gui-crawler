@@ -13,11 +13,15 @@ const result = resp.data.data || {}
 const metas = result.fkMetaobjs || []
 
 const browser = await puppeteer.launch({
-  executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  executablePath: 'C:\\Users\\shines\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe',
   args: ['--no-sandbox', '--disable-setuid-sandbox'],
   headless: false
 })
 const page = await browser.newPage()
+page.on('popup', async newPage => {
+  await page.goto(newPage.url())
+  await newPage.close()
+})
 await Promise.all([page.goto('https://www.jiuyangongshe.com/'), page.waitForNavigation()])
 
 
@@ -29,29 +33,23 @@ const items = await container.$$(step.extra.item[step.extra.item.idType])
 if (!items || !items.length) {
   throw new Error('未找到一篇文章！')
 }
-const colcData = Object.fromEntries(metas.map(mo => [mo.name, []]))
-for (const item of items) {
-  const colcItem = Object.fromEntries(metas.map(mo => [mo.name, {}]))
-  for (const binMap of step.extra.binMaps) {
-    const ele = await item.$(binMap.element[binMap.element.idType])
-    if (!ele) {
-      continue
-    }
-    const binMeta = metas.find(m => m._id === binMap.metaObj)
-    const binProp = binMeta.propers.find(p => p.key === binMap.proper)
-    switch (binMap.ctype) {
-      case 'text':
-        colcItem[binMeta.name][binProp.name] = await ele
-          .getProperty('textContent')
-          .then(txt => txt.jsonValue())
-        break
-      case 'file':
-        break
-    }
-  }
-  for (const [key, val] of Object.entries(colcItem)) {
-    if (Object.keys(val).length) {
-      colcData[key].push(val)
-    }
-  }
+const orgIdx = await page.evaluate('navigation.entries().find(entry => entry.sameDocument).index')
+console.log(orgIdx)
+const title = await items[0].$('.book-title.asdasd.click.fs17-bold')
+await Promise.all([
+  title.click(),
+  page.waitForNavigation()
+])
+console.log('加载完毕')
+const stock = await page.$('.h_source')
+console.log(await stock.getProperty('outerHTML').then(txt => txt.jsonValue()))
+await Promise.all([
+  stock.click(),
+  page.waitForNavigation()
+])
+const curIdx = await page.evaluate('navigation.entries().find(entry => entry.sameDocument).index')
+console.log(curIdx)
+await new Promise(resolve => setTimeout(resolve, 5000))
+for (let i = 0; i < curIdx - orgIdx; ++i) {
+  await page.goBack()
 }
