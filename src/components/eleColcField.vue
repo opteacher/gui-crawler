@@ -74,7 +74,7 @@ import BinMap, { ctypes } from '../types/binMap'
 import { TinyEmitter } from 'tiny-emitter'
 import PageEle from '@lib/types/pageEle'
 import MetaObj from '@/types/metaObj'
-import { setProp, getProp, pickOrIgnore } from '@lib/utils'
+import { setProp, getProp, pickOrIgnore, getEleByJS } from '@lib/utils'
 import { CollectExtra } from '@/types/step'
 import { MinusCircleOutlined } from '@ant-design/icons-vue'
 import { v4 as uuid } from 'uuid'
@@ -161,7 +161,16 @@ const mapper = reactive(
         }
       ],
       emitter: props.emitter,
-      seledStop: false
+      seledStop: false,
+      onChange: async (_form: any, ele: PageEle) => {
+        const itemEle = getEleByJS(
+          setProp(stepExtra.value.item, 'idType', 'xpath', { selfChange: false })
+        )
+        const idenEle = getEleByJS(setProp(ele, 'idType', 'xpath', { selfChange: false }))
+        ele.index = await props.webview.executeJavaScript(`
+          Array.from(${itemEle}.getElementsByTagName('${ele.tagName}')).findIndex(el => el === ${idenEle})
+        `)
+      }
     },
     ctype: {
       type: 'Select',
@@ -257,6 +266,8 @@ function getEleIdenLabel(binMap: BinMap) {
         .split('/')
         .filter(s => s)
         .join('\n.')
+    case 'tagName':
+      return `${binMap.element.iden}[${binMap.element.index}]`
   }
 }
 function getMetaPropLabel(binMap: BinMap) {

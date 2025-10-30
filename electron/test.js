@@ -13,7 +13,7 @@ const result = resp.data.data || {}
 const metas = result.fkMetaobjs || []
 
 const browser = await puppeteer.launch({
-  executablePath: 'C:\\Users\\shines\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe',
+  executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   args: ['--no-sandbox', '--disable-setuid-sandbox'],
   headless: false
 })
@@ -25,11 +25,11 @@ page.on('popup', async newPage => {
 await Promise.all([page.goto('https://www.jiuyangongshe.com/'), page.waitForNavigation()])
 
 
-const container = await page.$(step.extra.container[step.extra.container.idType])
+let container = await page.$(step.extra.container[step.extra.container.idType])
 if (!container) {
   throw new Error('未找到采集容器！')
 }
-const items = await container.$$(step.extra.item[step.extra.item.idType])
+let items = await container.$$(step.extra.item[step.extra.item.idType])
 if (!items || !items.length) {
   throw new Error('未找到一篇文章！')
 }
@@ -50,6 +50,14 @@ await Promise.all([
 const curIdx = await page.evaluate('navigation.entries().find(entry => entry.sameDocument).index')
 console.log(curIdx)
 await new Promise(resolve => setTimeout(resolve, 5000))
+
 for (let i = 0; i < curIdx - orgIdx; ++i) {
-  await page.goBack()
+  await Promise.all([page.goBack({ waitUntil: 'domcontentloaded' }), page.waitForNavigation()])
 }
+container = await page.$(step.extra.container[step.extra.container.idType])
+items = await container.$$(step.extra.item[step.extra.item.idType])
+console.log(await items[1]
+  .$('.book-title.asdasd.click.fs17-bold')
+  .then(ele => ele.getProperty('textContent'))
+  .then(txt => txt.jsonValue())
+)

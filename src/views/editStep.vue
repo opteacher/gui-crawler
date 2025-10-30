@@ -220,7 +220,16 @@ async function refresh() {
           placeholder: '将跳转到页面选择元素',
           disabled: [Cond.create('key', '==', '')],
           onSelEleClear,
-          onEleIdenChange
+          onEleIdenChange,
+          onChange: async (form: CollectExtra, ele: PageEle) => {
+            const ctnrEle = getEleByJS(
+              setProp(form.container, 'idType', 'xpath', { selfChange: false })
+            )
+            const itemEle = getEleByJS(setProp(ele, 'idType', 'xpath', { selfChange: false }))
+            ele.index = await pgElSelRef.value?.webviewRef?.executeJavaScript(`
+              Array.from(${ctnrEle}.getElementsByTagName('${ele.tagName}')).findIndex(el => el === ${itemEle})
+            `)
+          }
         },
         binMaps: {
           type: 'Button',
@@ -268,11 +277,11 @@ async function refresh() {
               const webview = pgElSelRef.value?.webviewRef
               const getCtnrAndItem = () =>
                 webview?.executeJavaScript(`
-                  const container = ${getEleByJS(extra.container)}
+                  window.container = ${getEleByJS(extra.container)}
                   if (!container) {
                     throw new Error('未找到采集容器！')
                   }
-                  const items = ${getEleByJS(extra.item, 'container', false)}
+                  window.items = ${getEleByJS(extra.item, 'container', true)}
                   if (!items || !items.length) {
                     throw new Error('未找到一篇文章！')
                   }
