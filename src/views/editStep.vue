@@ -217,6 +217,7 @@ async function refresh() {
           type: 'PageEleSel',
           label: '采集项',
           emitter,
+          idAll: true,
           placeholder: '将跳转到页面选择元素',
           disabled: [Cond.create('key', '==', '')],
           onSelEleClear,
@@ -281,7 +282,7 @@ async function refresh() {
                   if (!container) {
                     throw new Error('未找到采集容器！')
                   }
-                  window.items = ${getEleByJS(extra.item, 'container', true)}
+                  window.items = ${getEleByJS(extra.item, 'container')}
                   if (!items || !items.length) {
                     throw new Error('未找到一篇文章！')
                   }
