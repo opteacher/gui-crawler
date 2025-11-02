@@ -11,7 +11,7 @@ export default {
     await reqLink({ parent: ['step', ret.key], child: ['fkTask', tid] })
     return ret
   },
-  remove: (step: Step) => reqDelete('step', step.key),
+  remove: (step: any) => reqDelete('step', step.key),
   update: (step: Step) => reqPut<Step>('step', step.key, step, { ignores, copy: Step.copy }),
   all: (options?: RequestOptions, tid = router.currentRoute.value.params.tid) =>
     reqAll<Step>('step', {

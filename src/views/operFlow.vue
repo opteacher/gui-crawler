@@ -48,6 +48,7 @@
       @del:node="onDelStepSubmit"
       @update:nodes="onStepsUpdate"
       @click:node="onStepCardClick"
+      @add:node="onAddStepSubmit"
     >
       <template #extToolBtns>
         <a-float-button tooltip="显示代码" @click="onShowCodesClick">
@@ -85,7 +86,7 @@ import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
 import { TinyEmitter } from 'tiny-emitter'
-import { newOne, pickOrIgnore } from '@lib/utils'
+import { getFlowRngKeys, newOne, pickOrIgnore } from '@lib/utils'
 import { Cond } from '@lib/types'
 import MetaObj, { metaMapper } from '@/types/metaObj'
 import {
@@ -149,7 +150,13 @@ const mapperDict = {
       style: 'button'
     }
   },
-  opera: {}
+  opera: {
+    operas: {
+      type: 'Steps',
+      label: '操作流程'
+    }
+  },
+  end: {}
 }
 const mapper = new Mapper({
   title: {
@@ -165,7 +172,9 @@ const mapper = new Mapper({
     type: 'Select',
     label: '类型',
     rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }],
-    options: Object.entries(stypes).map(([value, { label }]) => ({ value, label })),
+    options: Object.entries(stypes)
+      .filter(([key]) => key !== 'end')
+      .map(([value, { label }]) => ({ value, label })),
     disabled: {
       OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '==', 0)]
     },
@@ -178,7 +187,8 @@ const mapper = new Mapper({
     type: 'FormGroup',
     label: '额外参数',
     prefix: true,
-    canFold: false
+    canFold: false,
+    display: [Cond.create('stype', '!=', 'end')]
   },
   preview: {
     type: 'Button',
@@ -205,6 +215,18 @@ async function onNewStepClick(step: Step) {
   return stpAPI.add(step).then(newStp => newStp.key)
 }
 async function onDelStepSubmit(step: Step, callback: Function) {
+  if (step.stype === 'opera') {
+    const keys = _.uniq(
+      getFlowRngKeys(
+        Object.fromEntries(steps.map(stp => [stp.key, stp])),
+        step.key,
+        step.relative as string
+      )
+    ).filter(key => key !== step.key)
+    await Promise.all(
+      keys.map(key => new Promise(resolve => emitter.emit('del:node', key, resolve)))
+    )
+  }
   await stpAPI.remove(step)
   callback()
 }
@@ -307,5 +329,33 @@ function onStepTitleAutoGen(step: Step) {
     title = title.replace(`@${key}$`, (val as any).toString() || 'XXXX')
   }
   emitter.emit('update:dprop', { title })
+}
+async function onAddStepSubmit(step: Step, callback: Function) {
+  if (step.stype === 'opera') {
+    const endStep = await stpAPI.add({
+      stype: 'end',
+      relative: step.key,
+      title: '结束节点',
+      delable: false,
+      previous: [step.key],
+      nexts: step.nexts
+    })
+    step.nexts.forEach(async nxtKey => {
+      const nxtStep = steps.find(s => s.key === nxtKey)
+      if (!nxtStep) {
+        return
+      }
+      nxtStep.previous.splice(
+        nxtStep.previous.findIndex(key => key === step.key),
+        1,
+        endStep.key
+      )
+      await stpAPI.update(pickOrIgnore(nxtStep, ['key', 'previous'], false))
+    })
+    step.relative = endStep.key
+    step.nexts = [endStep.key]
+    await stpAPI.update(pickOrIgnore(step, ['key', 'relative', 'nexts'], false))
+  }
+  callback()
 }
 </script>

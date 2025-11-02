@@ -256,6 +256,13 @@ async function refresh() {
       }
       genBinMapDesc(task.value.fkMetaobjs as MetaObj[], curStep.value.extra)
       break
+    case 'opera':
+      stpMapper = {
+        operas: {
+          type: 'Steps',
+          label: '操作流程'
+        }
+      }
   }
   mapper.value = new Mapper({
     ...stpMapper,

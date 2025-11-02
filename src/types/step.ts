@@ -92,6 +92,13 @@ export const stypes = {
     icon: 'SelectOutlined',
     title: '在页面中操作',
     copy: OperaExtra.copy
+  },
+  end: {
+    label: '结束节点',
+    color: '#d9d9d9',
+    icon: 'StopOutlined',
+    title: '流程结束',
+    copy: () => null
   }
 }
 
@@ -99,11 +106,13 @@ export type Stype = keyof typeof stypes
 
 export default class Step extends Node {
   stype?: Stype
+  relative: string
   extra: any
   fkTask: string | Task
 
   constructor() {
     super()
+    this.relative = ''
     this.extra = null
     this.fkTask = ''
   }
@@ -111,6 +120,7 @@ export default class Step extends Node {
   reset() {
     super.reset()
     this.stype = undefined
+    this.relative = ''
     this.extra = null
     this.fkTask = ''
   }
