@@ -156,7 +156,9 @@ const mapperDict = {
       label: '操作流程'
     }
   },
-  end: {}
+  end: {},
+  oper: {},
+  unknown: {}
 }
 const mapper = new Mapper({
   title: {
@@ -173,7 +175,7 @@ const mapper = new Mapper({
     label: '类型',
     rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }],
     options: Object.entries(stypes)
-      .filter(([key]) => key !== 'end')
+      .filter(([key]) => key !== 'end' && key !== 'oper' && key !== 'unknown')
       .map(([value, { label }]) => ({ value, label })),
     disabled: {
       OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '==', 0)]
@@ -332,29 +334,46 @@ function onStepTitleAutoGen(step: Step) {
 }
 async function onAddStepSubmit(step: Step, callback: Function) {
   if (step.stype === 'opera') {
-    const endStep = await stpAPI.add({
-      stype: 'end',
-      relative: step.key,
-      title: '结束节点',
-      delable: false,
-      previous: [step.key],
-      nexts: step.nexts
-    })
-    step.nexts.forEach(async nxtKey => {
-      const nxtStep = steps.find(s => s.key === nxtKey)
-      if (!nxtStep) {
-        return
-      }
-      nxtStep.previous.splice(
-        nxtStep.previous.findIndex(key => key === step.key),
-        1,
-        endStep.key
+    const endStep = await new Promise<Step>(resolve =>
+      emitter.emit(
+        'add:node',
+        {
+          stype: 'end',
+          relative: step.key,
+          title: '结束节点',
+          delable: false,
+          previous: [step.key],
+          nexts: step.nexts
+        },
+        resolve
       )
-      await stpAPI.update(pickOrIgnore(nxtStep, ['key', 'previous'], false))
-    })
-    step.relative = endStep.key
-    step.nexts = [endStep.key]
-    await stpAPI.update(pickOrIgnore(step, ['key', 'relative', 'nexts'], false))
+    )
+    await new Promise(resolve =>
+      emitter.emit(
+        'add:node',
+        {
+          previous: [step.key],
+          nexts: [endStep.key],
+          delable: false,
+          stype: 'oper',
+          title: '预设步骤'
+        },
+        resolve
+      )
+    )
+    await new Promise(resolve =>
+      emitter.emit(
+        'add:node',
+        {
+          previous: [step.key],
+          nexts: [endStep.key],
+          delable: false,
+          stype: 'unknown',
+          addMode: 'append'
+        },
+        resolve
+      )
+    )
   }
   callback()
 }

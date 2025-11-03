@@ -72,6 +72,13 @@ export class OperaExtra {
 }
 
 export const stypes = {
+  unknown: {
+    label: '未知类型',
+    color: '#ff4d4f',
+    icon: 'QuestionOutlined',
+    title: '未知类型节点',
+    copy: () => null
+  },
   goto: {
     label: '页面跳转',
     color: '#1677ff',
@@ -98,6 +105,13 @@ export const stypes = {
     color: '#d9d9d9',
     icon: 'StopOutlined',
     title: '流程结束',
+    copy: () => null
+  },
+  oper: {
+    label: '操作节点',
+    color: '#722ed1',
+    icon: 'ControlOutlined',
+    title: '执行自定义操作',
     copy: () => null
   }
 }
