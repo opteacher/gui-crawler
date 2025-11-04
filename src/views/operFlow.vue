@@ -232,11 +232,12 @@ async function onDelStepSubmit(step: Step, callback: Function) {
   await stpAPI.remove(step)
   callback()
 }
-async function onStepsUpdate(nstps: Step[]) {
+async function onStepsUpdate(nstps: Step[], callback: Function) {
   await Promise.all(
     nstps.map(step => stpAPI.update(pickOrIgnore(step, ['key', 'previous', 'nexts'], false)))
   )
   await refresh()
+  callback && callback()
 }
 async function onMetaSave(form: MetaObj, next: Function) {
   if (form.key) {
@@ -355,8 +356,11 @@ async function onAddStepSubmit(step: Step, callback: Function) {
           previous: [step.key],
           nexts: [endStep.key],
           delable: false,
-          stype: 'oper',
-          title: '预设步骤'
+          stype: 'unknown',
+          display: false,
+          addable: false,
+          addMode: 'append',
+          title: '占位节点'
         },
         resolve
       )
@@ -368,8 +372,8 @@ async function onAddStepSubmit(step: Step, callback: Function) {
           previous: [step.key],
           nexts: [endStep.key],
           delable: false,
-          stype: 'unknown',
-          addMode: 'append'
+          stype: 'oper',
+          title: '预设步骤'
         },
         resolve
       )
