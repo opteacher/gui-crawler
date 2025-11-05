@@ -103,11 +103,13 @@ import { Modal, notification } from 'ant-design-vue'
 import CodeEditor from '@lib/components/CodeEditor.vue'
 import metaAPI from '@/apis/meta'
 import _ from 'lodash'
+import { otypes } from '@lib/types/pgOper'
 
 const route = useRoute()
 const router = useRouter()
 const task = ref<Task>(new Task())
 const steps = reactive<Step[]>([])
+const stpDict = ref<Record<string, Step>>({})
 const mapperDict = {
   goto: {
     chromePath: {
@@ -129,17 +131,18 @@ const mapperDict = {
     container: {
       type: 'PageEleSel',
       label: '采集容器',
-      vwOnly: true
+      onSelEleStart: () =>
+        router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
     },
     item: {
       type: 'PageEleSel',
       label: '采集项',
-      vwOnly: true
+      onSelEleStart: () =>
+        router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
     },
     binMaps: {
       type: 'Table',
-      label: '采集表',
-      vwOnly: true
+      label: '采集表'
     },
     strategy: {
       type: 'Radio',
@@ -158,7 +161,40 @@ const mapperDict = {
     }
   },
   end: {},
-  oper: {},
+  oper: {
+    element: {
+      type: 'PageEleSel',
+      label: '操作元素',
+      onSelEleStart: () =>
+        router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
+    },
+    otype: {
+      type: 'Select',
+      label: '操作类型',
+      options: Object.entries(otypes).map(([value, { label }]) => ({ value, label })),
+      onChange: (_form: any, to: keyof typeof otypes) => {
+        emitter.emit('update:mprop', {
+          'extra.items.value.display': to === 'input' || to === 'select',
+          'extra.items.encrypt.display': to === 'input'
+        })
+      }
+    },
+    value: {
+      type: 'Input',
+      label: '值',
+      display: false
+    },
+    encrypt: {
+      type: 'Switch',
+      label: '是否加密值',
+      display: false
+    },
+    timeout: {
+      type: 'Number',
+      label: '延时',
+      suffix: '毫秒'
+    }
+  },
   unknown: {}
 }
 const mapper = new Mapper({
@@ -175,9 +211,11 @@ const mapper = new Mapper({
     type: 'Select',
     label: '类型',
     rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }],
-    options: Object.entries(stypes)
-      .filter(([key]) => key !== 'end' && key !== 'oper' && key !== 'unknown')
-      .map(([value, { label }]) => ({ value, label })),
+    options: Object.entries(stypes).map(([value, { label }]) => ({
+      value,
+      label,
+      disabled: value === 'end' || value === 'oper' || value === 'unknown'
+    })),
     disabled: {
       OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '==', 0)]
     },
@@ -206,12 +244,14 @@ const metaState = reactive({
   emitter: new TinyEmitter(),
   mapper: new Mapper(metaMapper)
 })
+const curStep = ref<Step>()
 
 onMounted(refresh)
 
 async function refresh() {
   task.value = await tskAPI.get(route.params.tid as string)
   steps.splice(0, steps.length, ...(await stpAPI.all()))
+  stpDict.value = Object.fromEntries(steps.map(stp => [stp.key, stp]))
   emitter.emit('refresh')
 }
 async function onNewStepClick(step: Step) {
@@ -301,31 +341,23 @@ function onExecToStepClick(step: Step) {
   router.push(`/gui-crawler/task/${tskKey}/step/${stpKey}/edit`)
 }
 function onStepCardClick(step: Step) {
+  curStep.value = step
   if (!step.previous.length) {
     emitter.emit('update:dprop', { stype: 'goto' })
     step.stype = 'goto'
+  } else {
+    const fmrStep = stpDict.value[step.previous[0]]
+    switch (fmrStep.stype) {
+      case 'opera':
+      case 'oper':
+        emitter.emit('update:mprop', { 'stype.disabled': true })
+        step.stype = 'oper'
+        break
+      default:
+        emitter.emit('update:mprop', { 'stype.disabled': false })
+    }
   }
   emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[step.stype as Stype]) })
-  switch (step.stype) {
-    case 'collect':
-      const extra = step.extra as CollectExtra
-      emitter.emit('update:mprop', {
-        'extra.items.container.onClick': () =>
-          router.push(`/gui-crawler/task/${route.params.tid}/step/${step.key}/edit`),
-        'extra.items.item.onClick': () =>
-          router.push(`/gui-crawler/task/${route.params.tid}/step/${step.key}/edit`)
-      })
-      if (extra.container.iden) {
-        emitter.emit('update:mprop', {
-          'extra.items.container.inner': extra.container.iden
-        })
-      }
-      if (extra.item.iden) {
-        emitter.emit('update:mprop', {
-          'extra.items.item.inner': extra.item.iden
-        })
-      }
-  }
 }
 function onStepTitleAutoGen(step: Step) {
   let title = stypes[step.stype as Stype].title

@@ -112,7 +112,7 @@ export const stypes = {
     color: '#722ed1',
     icon: 'ControlOutlined',
     title: '执行自定义操作',
-    copy: () => null
+    copy: PgOper.copy
   }
 }
 
