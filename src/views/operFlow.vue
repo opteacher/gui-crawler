@@ -40,6 +40,7 @@
     </template>
     <FlowDsgn
       v-else
+      class="flex-1"
       :nodes="steps"
       :mapper="mapper"
       :emitter="emitter"
