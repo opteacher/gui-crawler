@@ -8,7 +8,7 @@ export default (tid = router.currentRoute.value.params.tid) => ({
     await reqLink({ parent: ['task', tid], child: ['fkMetaobjs', ret.key] })
     return ret
   },
-  remove: async (meta: Meta) => {
+  remove: async (meta: any) => {
     await reqLink({ parent: ['task', tid], child: ['fkMetaobjs', meta.key] }, false)
     return reqDelete('metaObj', meta.key)
   },

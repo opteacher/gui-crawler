@@ -91,7 +91,7 @@ const props = defineProps({
 const emit = defineEmits(['eleMetaBind', 'eleMetaUnbind'])
 const tdSvc = new TurndownService()
 const stepExtra = toRef(props.stepExtra)
-const editing = ref<BinMap | null>(null)
+const editing = ref<BinMap>()
 const mapper = reactive(
   new Mapper({
     preOpers: {
@@ -231,7 +231,7 @@ const mapper = reactive(
             stepExtra.value.binMaps.push(adjBinMap)
             emit('eleMetaBind', adjBinMap)
             props.emitter.emit('stop-select')
-            editing.value = null
+            editing.value = undefined
           }
         },
         {
@@ -239,7 +239,7 @@ const mapper = reactive(
           inner: '取消',
           ghost: false,
           primary: false,
-          onClick: () => (editing.value = null)
+          onClick: () => (editing.value = undefined)
         }
       ]
     }

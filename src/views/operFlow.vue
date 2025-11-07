@@ -49,7 +49,7 @@
       @del:node="onDelStepSubmit"
       @update:nodes="onStepsUpdate"
       @click:node="onStepCardClick"
-      @add:node="onAddStepSubmit"
+      @add:node="(_v: any, callback: Function) => callback()"
     >
       <template #extToolBtns>
         <a-float-button tooltip="显示代码" @click="onShowCodesClick">
@@ -57,12 +57,6 @@
             <CodeOutlined />
           </template>
         </a-float-button>
-      </template>
-      <template #nodeCard_moreMuItms="{ node }: any">
-        <a-menu-item key="preview" @click="() => onExecToStepClick(node)">
-          <template #icon><PlayCircleOutlined /></template>
-          执行到该步骤
-        </a-menu-item>
       </template>
       <template #editNode_titleSFX="{ formState: step }: { formState: Step }">
         <a-button @click="() => onStepTitleAutoGen(step)">自动生成</a-button>
@@ -82,7 +76,7 @@ import { useRoute, useRouter } from 'vue-router'
 import FlowDsgn from '@lib/components/FlowDsgn.vue'
 import { createVNode, onMounted, reactive, ref } from 'vue'
 import Mapper from '@lib/types/mapper'
-import Step, { CollectExtra, Stype, stypes } from '@/types/step'
+import Step, { onExecToStepClick, Stype, stypes } from '@/types/step'
 import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
@@ -95,11 +89,10 @@ import {
   MinusOutlined,
   ExclamationCircleOutlined,
   CodeOutlined,
-  ClusterOutlined,
-  PlayCircleOutlined
+  ClusterOutlined
 } from '@ant-design/icons-vue'
 import FormDialog from '@lib/components/FormDialog.vue'
-import { Modal, notification } from 'ant-design-vue'
+import { Modal } from 'ant-design-vue'
 import CodeEditor from '@lib/components/CodeEditor.vue'
 import metaAPI from '@/apis/meta'
 import _ from 'lodash'
@@ -130,23 +123,23 @@ const mapperDict = {
   collect: {
     container: {
       type: 'PageEleSel',
-      label: '采集容器',
+      label: '容器',
       onSelEleStart: () =>
         router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
     },
     item: {
       type: 'PageEleSel',
-      label: '采集项',
+      label: '项',
       onSelEleStart: () =>
         router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
     },
     binMaps: {
       type: 'Table',
-      label: '采集表'
+      label: '绑定表'
     },
     strategy: {
       type: 'Radio',
-      label: '采集策略',
+      label: '策略',
       options: [
         { label: '采集当页所有', value: 'all' },
         { label: '只采第一条', value: 'first' }
@@ -154,27 +147,21 @@ const mapperDict = {
       style: 'button'
     }
   },
-  opera: {
-    operas: {
-      type: 'Steps',
-      label: '操作流程'
-    }
-  },
   end: {},
-  oper: {
+  opera: {
     element: {
       type: 'PageEleSel',
-      label: '操作元素',
+      label: '元素',
       onSelEleStart: () =>
         router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
     },
     otype: {
       type: 'Select',
-      label: '操作类型',
+      label: '类型',
       options: Object.entries(otypes).map(([value, { label }]) => ({ value, label })),
       onChange: (_form: any, to: keyof typeof otypes) => {
         emitter.emit('update:mprop', {
-          'extra.items.value.display': to === 'input' || to === 'select',
+          'extra.items.value.display': ['input', 'select', 'pick'].includes(to),
           'extra.items.encrypt.display': to === 'input'
         })
       }
@@ -197,6 +184,9 @@ const mapperDict = {
   },
   unknown: {}
 }
+const avaStypes = ref<string[]>(
+  Object.keys(stypes).filter(st => !['end', 'unknown', 'oper'].includes(st))
+)
 const mapper = new Mapper({
   title: {
     type: 'Input',
@@ -211,17 +201,17 @@ const mapper = new Mapper({
     type: 'Select',
     label: '类型',
     rules: [{ required: true, message: '必须选择类型！', trigger: 'change' }],
-    options: Object.entries(stypes).map(([value, { label }]) => ({
-      value,
-      label,
-      disabled: value === 'end' || value === 'oper' || value === 'unknown'
-    })),
+    options: Object.entries(stypes)
+      .filter(([value]) => avaStypes.value.includes(value))
+      .map(([value, { label }]) => ({ value, label })),
     disabled: {
       OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '==', 0)]
     },
-    onChange: (_editing: Step, stype: keyof typeof stypes) => {
+    onChange: (editing: Step, stype: keyof typeof stypes) => {
       emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[stype]) })
-      emitter.emit('update:dprop', { extra: stypes[stype].copy({}) })
+      if (!editing.key) {
+        emitter.emit('update:dprop', { extra: stype in stypes ? stypes[stype].copy({}) : {} })
+      }
     }
   },
   extra: {
@@ -331,87 +321,24 @@ async function onShowCodesClick() {
   })
   task.value.code = codes.join('\n\n')
 }
-function onExecToStepClick(step: Step) {
-  const tskKey = route.params.tid as string
-  const stpKey = step.key || step.previous[0]
-  if (!stpKey) {
-    notification.error({ message: '无法跳转到该步骤！' })
-    return
-  }
-  router.push(`/gui-crawler/task/${tskKey}/step/${stpKey}/edit`)
-}
 function onStepCardClick(step: Step) {
   curStep.value = step
   if (!step.previous.length) {
     emitter.emit('update:dprop', { stype: 'goto' })
     step.stype = 'goto'
-  } else {
-    const fmrStep = stpDict.value[step.previous[0]]
-    switch (fmrStep.stype) {
-      case 'opera':
-      case 'oper':
-        emitter.emit('update:mprop', { 'stype.disabled': true })
-        step.stype = 'oper'
-        break
-      default:
-        emitter.emit('update:mprop', { 'stype.disabled': false })
-    }
   }
   emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[step.stype as Stype]) })
+  if (!step.key) {
+    emitter.emit('update:dprop', {
+      extra: step.stype && step.stype in stypes ? stypes[step.stype].copy({}) : {}
+    })
+  }
 }
 function onStepTitleAutoGen(step: Step) {
   let title = stypes[step.stype as Stype].title
-  for (const [key, val] of Object.entries(step.extra)) {
-    title = title.replace(`@${key}$`, (val as any).toString() || 'XXXX')
+  for (const [key, val] of Object.entries(step.extra || {})) {
+    title = title.replace(`[${key}]`, (val as any).toString() || 'XXXX')
   }
   emitter.emit('update:dprop', { title })
-}
-async function onAddStepSubmit(step: Step, callback: Function) {
-  if (step.stype === 'opera') {
-    const endStep = await new Promise<Step>(resolve =>
-      emitter.emit(
-        'add:node',
-        {
-          stype: 'end',
-          relative: step.key,
-          title: '结束节点',
-          delable: false,
-          previous: [step.key],
-          nexts: step.nexts
-        },
-        resolve
-      )
-    )
-    await new Promise(resolve =>
-      emitter.emit(
-        'add:node',
-        {
-          previous: [step.key],
-          nexts: [endStep.key],
-          delable: false,
-          stype: 'unknown',
-          display: false,
-          addable: false,
-          addMode: 'append',
-          title: '占位节点'
-        },
-        resolve
-      )
-    )
-    await new Promise(resolve =>
-      emitter.emit(
-        'add:node',
-        {
-          previous: [step.key],
-          nexts: [endStep.key],
-          delable: false,
-          stype: 'oper',
-          title: '预设步骤'
-        },
-        resolve
-      )
-    )
-  }
-  callback()
 }
 </script>

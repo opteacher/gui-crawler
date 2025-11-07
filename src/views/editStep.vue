@@ -70,12 +70,16 @@
     title="爬取结果"
     v-model:open="crawlPvw.resVsb"
     width="80vw"
+    :footer="null"
     :bodyStyle="{ height: '60vh' }"
+    @cancel="() => (crawlPvw.data = {})"
   >
+    <a-textarea v-if="typeof crawlPvw.data === 'string'" class="h-full" readonly :value="crawlPvw.data" />
     <EditableTable
+      v-else
       v-for="metaObj in (task?.fkMetaobjs as MetaObj[])"
       :title="metaObj.label"
-      :api="{ all: async () => crawlPvw.data[metaObj.key] }"
+      :api="{ all: async () => (crawlPvw.data as Record<string, any[]>)[metaObj.key] }"
       :columns="metaObj.propers.map(prop => new Column(prop.label, prop.name))"
       :new-fun="() => Object.fromEntries(metaObj.propers.map(p => [p.name, typeDftVal(p.ptype)]))"
       :emitter="crawlPvw.emitter"
@@ -94,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import PgEleSelect from '@lib/components/PgEleSelect.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Task from '@/types/task'
@@ -117,6 +121,7 @@ import { typeDftVal } from '@lib/types'
 import TurndownService from 'turndown'
 import rcdAPI from '@/apis/record'
 import glbAPI from '@/apis/global'
+import PgOper, { otypes } from '@lib/types/pgOper'
 
 const route = useRoute()
 const router = useRouter()
@@ -129,14 +134,15 @@ const stpDict = ref<Record<string, Step>>({})
 const mapper = ref<Mapper>(new Mapper({}))
 const emitter = new TinyEmitter()
 const loading = ref(false)
-const curStep = computed<Step | undefined>(() => getProp(stpDict.value, route.params.sid as string))
+const curStep = computed<Step>(() => getProp(stpDict.value, route.params.sid as string))
 const hlEles = computed(() => {
   const step = getProp(stpDict.value, route.params.sid as string)
   return Object.fromEntries(
     [
-      ['采集容器', getProp(step, 'extra.container.xpath')],
-      ['采集项', getProp(step, 'extra.item.xpath')],
-      ...getProp(step, 'extra.binMaps', []).map((bm: BinMap) => [bm.desc, bm.element.xpath])
+      ['容器', getProp(step, 'extra.container.xpath')],
+      ['项', getProp(step, 'extra.item.xpath')],
+      ...getProp(step, 'extra.binMaps', []).map((bm: BinMap) => [bm.desc, bm.element.xpath]),
+      ['操作元素', getProp(step, 'extra.element.xpath')]
     ].filter(([_k, v]) => v)
   )
 })
@@ -144,10 +150,14 @@ const metaObjs = computed(() => task.value?.fkMetaobjs as MetaObj[])
 const crawlPvw = reactive({
   resVsb: false,
   emitter: new TinyEmitter(),
-  data: {} as Record<string, any[]>
+  data: {} as Record<string, any[]> | string
 })
 
 onMounted(refresh)
+watch(
+  () => loading.value,
+  () => setProp(mapper.value, 'execute.loading', loading.value)
+)
 
 async function refresh() {
   loading.value = true
@@ -171,6 +181,7 @@ async function refresh() {
         curURL.value = url.value
         break
       case 'opera':
+        await new Promise(resolve => emitter.emit('exec-opers', [step.extra], resolve))
         break
     }
   }
@@ -206,7 +217,7 @@ async function refresh() {
       stpMapper = {
         container: {
           type: 'PageEleSel',
-          label: '采集容器',
+          label: '容器',
           emitter,
           placeholder: '将跳转到页面选择元素',
           disabled: [Cond.create('key', '==', '')],
@@ -215,7 +226,7 @@ async function refresh() {
         },
         item: {
           type: 'PageEleSel',
-          label: '采集项',
+          label: '项',
           emitter,
           idAll: true,
           placeholder: '将跳转到页面选择元素',
@@ -234,15 +245,15 @@ async function refresh() {
         },
         binMaps: {
           type: 'Button',
-          inner: '添加采集项',
-          label: '采集表',
+          inner: '添加绑定项',
+          label: '绑定表',
           placeholder: '将跳转到页面选择元素',
           fullWid: true,
           disabled: [Cond.create('key', '==', '')]
         },
         strategy: {
           type: 'Radio',
-          label: '采集策略',
+          label: '策略',
           options: [
             { label: '采集当页所有', value: 'all' },
             { label: '只采第一条', value: 'first' }
@@ -258,11 +269,58 @@ async function refresh() {
       break
     case 'opera':
       stpMapper = {
-        operas: {
-          type: 'Steps',
-          label: '操作流程'
+        element: {
+          type: 'PageEleSel',
+          label: '页面元素',
+          emitter,
+          disabled: [Cond.create('key', '==', '')],
+          onSelEleClear,
+          onEleIdenChange
+        },
+        otype: {
+          type: 'Select',
+          label: '操作方式',
+          options: Object.entries(otypes).map(([value, { label }]) => ({ value, label })),
+          onChange: async (form: PgOper, to: keyof typeof otypes) => {
+            form.otype = to
+            await updateStepExtra()
+          }
+        },
+        value: {
+          type: 'SelOrIpt',
+          label: '值',
+          display: {
+            OR: [
+              Cond.create('otype', '==', 'input'),
+              Cond.create('otype', '==', 'select'),
+              Cond.create('otype', '==', 'pick')
+            ]
+          },
+          options: ['innerText', 'innerHTML', 'outerHTML'].map(itm => ({
+            value: itm,
+            label: itm
+          })),
+          onChange: async (form: PgOper, to: string) => {
+            form.value = to
+            await updateStepExtra()
+          }
+        },
+        encrypt: {
+          type: 'Switch',
+          label: '加密',
+          display: [Cond.create('otype', '==', 'input')]
+        },
+        timeout: {
+          type: 'Number',
+          label: '延时',
+          suffix: '毫秒',
+          onBlur: async (form: PgOper, to: number) => {
+            form.timeout = to
+            await updateStepExtra()
+          }
         }
       }
+      break
   }
   mapper.value = new Mapper({
     ...stpMapper,
@@ -270,97 +328,10 @@ async function refresh() {
       type: 'Button',
       offset: 4,
       inner: '预览该步骤',
-      loading: () => loading.value,
+      loading: loading.value,
       fullWid: true,
       ghost: false,
-      onClick: async (form: GotoExtra | CollectExtra) => {
-        switch (curStep.value?.stype) {
-          case 'goto':
-            onGotoByURL((form as GotoExtra).url)
-            break
-          case 'collect':
-            {
-              const extra = form as CollectExtra
-              const metaObjs = task.value?.fkMetaobjs as MetaObj[]
-              const webview = pgElSelRef.value?.webviewRef
-              const getCtnrAndItem = () =>
-                webview?.executeJavaScript(`
-                  window.container = ${getEleByJS(extra.container)}
-                  if (!container) {
-                    throw new Error('未找到采集容器！')
-                  }
-                  window.items = ${getEleByJS(extra.item, 'container')}
-                  if (!items || !items.length) {
-                    throw new Error('未找到一篇文章！')
-                  }
-                `)
-              await getCtnrAndItem()
-              const itmLen = await webview?.executeJavaScript('items.length')
-              const colcData = Object.fromEntries(metaObjs.map(mo => [mo.key, [] as any[]]))
-              for (let i = 0; i < (extra.strategy === 'first' ? 1 : itmLen); ++i) {
-                const colcItem = Object.fromEntries(metaObjs.map(mo => [mo.key, {}]))
-                for (const binMap of extra.binMaps) {
-                  const orgIdx = await webview?.executeJavaScript(
-                    'navigation.entries().find(entry => entry.sameDocument).index'
-                  )
-                  await new Promise(resolve =>
-                    emitter.emit('exec-opers', binMap.preOpers, resolve, `items[${i}]`)
-                  )
-                  const curIdx = await webview?.executeJavaScript(
-                    'navigation.entries().find(entry => entry.sameDocument).index'
-                  )
-                  // 前置操作未造成页面变化，则使用items[i]作为父；反之页面已变，则全页面搜索元素
-                  const ele = getEleByJS(
-                    binMap.element,
-                    orgIdx === curIdx ? `items[${i}]` : undefined
-                  )
-                  const binMeta = metaObjs.find(m => m.key === binMap.metaObj)
-                  const binProp = binMeta?.propers.find(p => p.key === binMap.proper)
-                  if (!binMeta || !binProp) {
-                    continue
-                  }
-                  try {
-                    switch (binMap.ctype) {
-                      case 'text':
-                        setProp(
-                          colcItem,
-                          `${binMeta.key}.${binProp.name}`,
-                          await webview?.executeJavaScript(`${ele}.innerText`)
-                        )
-                        break
-                      case 'markdown':
-                        setProp(
-                          colcItem,
-                          `${binMeta.key}.${binProp.name}`,
-                          tdSvc.turndown(await webview?.executeJavaScript(`${ele}.outerHTML`))
-                        )
-                        break
-                      case 'file':
-                        break
-                    }
-                  } catch (e) {
-                    continue
-                  } finally {
-                    if (orgIdx !== curIdx) {
-                      // 页面跳转，回到原始页面
-                      emitter.emit('goto-history', orgIdx)
-                      // 页面跳转，重新获取容器和项
-                      await getCtnrAndItem()
-                    }
-                  }
-                }
-                for (const [key, val] of Object.entries(colcItem)) {
-                  if (Object.keys(val).length) {
-                    colcData[key].push(val)
-                  }
-                }
-              }
-              crawlPvw.data = colcData
-              crawlPvw.resVsb = true
-            }
-            break
-        }
-      }
+      onClick: onPvwStepClick
     }
   })
 }
@@ -401,7 +372,7 @@ function onGotoByURL(u?: string) {
 async function onStoreToDB(moKey: string) {
   loading.value = true
   crawlPvw.emitter.emit('load', true)
-  for (const record of crawlPvw.data[moKey]) {
+  for (const record of (crawlPvw.data as Record<string, any[]>)[moKey]) {
     await rcdAPI(route.params.tid as string).add({ data: record }, moKey)
   }
   loading.value = false
@@ -410,5 +381,103 @@ async function onStoreToDB(moKey: string) {
 }
 async function onGetChromePath(extra: GotoExtra) {
   extra.chromePath = await glbAPI.chrome.path()
+}
+async function onPvwStepClick(form: GotoExtra | CollectExtra | PgOper) {
+  switch (curStep.value?.stype) {
+    case 'goto':
+      onGotoByURL((form as GotoExtra).url)
+      break
+    case 'collect':
+      {
+        const extra = form as CollectExtra
+        const metaObjs = task.value?.fkMetaobjs as MetaObj[]
+        const webview = pgElSelRef.value?.webviewRef
+        const getCtnrAndItem = () =>
+          webview?.executeJavaScript(`
+            window.container = ${getEleByJS(extra.container)}
+            if (!container) {
+              throw new Error('未找到采集容器！')
+            }
+            window.items = ${getEleByJS(extra.item, 'container')}
+            if (!items || !items.length) {
+              throw new Error('未找到一篇文章！')
+            }
+          `)
+        await getCtnrAndItem()
+        const itmLen = await webview?.executeJavaScript('items.length')
+        const colcData = Object.fromEntries(metaObjs.map(mo => [mo.key, [] as any[]]))
+        for (let i = 0; i < (extra.strategy === 'first' ? 1 : itmLen); ++i) {
+          const colcItem = Object.fromEntries(metaObjs.map(mo => [mo.key, {}]))
+          for (const binMap of extra.binMaps) {
+            const orgIdx = await webview?.executeJavaScript(
+              'navigation.entries().find(entry => entry.sameDocument).index'
+            )
+            await new Promise(resolve =>
+              emitter.emit('exec-opers', binMap.preOpers, resolve, `items[${i}]`)
+            )
+            const curIdx = await webview?.executeJavaScript(
+              'navigation.entries().find(entry => entry.sameDocument).index'
+            )
+            // 前置操作未造成页面变化，则使用items[i]作为父；反之页面已变，则全页面搜索元素
+            const ele = getEleByJS(binMap.element, orgIdx === curIdx ? `items[${i}]` : undefined)
+            const binMeta = metaObjs.find(m => m.key === binMap.metaObj)
+            const binProp = binMeta?.propers.find(p => p.key === binMap.proper)
+            if (!binMeta || !binProp) {
+              continue
+            }
+            try {
+              switch (binMap.ctype) {
+                case 'text':
+                  setProp(
+                    colcItem,
+                    `${binMeta.key}.${binProp.name}`,
+                    await webview?.executeJavaScript(`${ele}.innerText`)
+                  )
+                  break
+                case 'markdown':
+                  setProp(
+                    colcItem,
+                    `${binMeta.key}.${binProp.name}`,
+                    tdSvc.turndown(await webview?.executeJavaScript(`${ele}.outerHTML`))
+                  )
+                  break
+                case 'file':
+                  break
+              }
+            } catch (e) {
+              continue
+            } finally {
+              if (orgIdx !== curIdx) {
+                // 页面跳转，回到原始页面
+                emitter.emit('goto-history', orgIdx)
+                // 页面跳转，重新获取容器和项
+                await getCtnrAndItem()
+              }
+            }
+          }
+          for (const [key, val] of Object.entries(colcItem)) {
+            if (Object.keys(val).length) {
+              colcData[key].push(val)
+            }
+          }
+        }
+        crawlPvw.data = colcData
+        crawlPvw.resVsb = true
+      }
+      break
+    case 'opera':
+      {
+        const extra = form as PgOper
+        if (extra.otype == 'pick') {
+          crawlPvw.data = (await pgElSelRef.value?.webviewRef?.executeJavaScript(
+            `JSON.stringify(${getEleByJS(extra.element)}.${extra.value})`
+          )) as string
+          crawlPvw.resVsb = true
+        } else {
+          await new Promise(resolve => emitter.emit('exec-opers', [form], resolve))
+        }
+      }
+      break
+  }
 }
 </script>
