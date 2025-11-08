@@ -96,7 +96,7 @@ import { Modal } from 'ant-design-vue'
 import CodeEditor from '@lib/components/CodeEditor.vue'
 import metaAPI from '@/apis/meta'
 import _ from 'lodash'
-import { otypes } from '@lib/types/pgOper'
+import PgOper, { otypes } from '@lib/types/pgOper'
 
 const route = useRoute()
 const router = useRouter()
@@ -149,37 +149,48 @@ const mapperDict = {
   },
   end: {},
   opera: {
-    element: {
-      type: 'PageEleSel',
-      label: '元素',
-      onSelEleStart: () =>
-        router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
-    },
-    otype: {
-      type: 'Select',
-      label: '类型',
-      options: Object.entries(otypes).map(([value, { label }]) => ({ value, label })),
-      onChange: (_form: any, to: keyof typeof otypes) => {
-        emitter.emit('update:mprop', {
-          'extra.items.value.display': ['input', 'select', 'pick'].includes(to),
-          'extra.items.encrypt.display': to === 'input'
-        })
-      }
-    },
-    value: {
-      type: 'Input',
-      label: '值',
-      display: false
-    },
-    encrypt: {
-      type: 'Switch',
-      label: '是否加密值',
-      display: false
-    },
-    timeout: {
-      type: 'Number',
-      label: '延时',
-      suffix: '毫秒'
+    opers: {
+      type: 'EditList',
+      label: '操作流程',
+      mapper: new Mapper({
+        element: {
+          type: 'PageEleSel',
+          label: '元素',
+          onSelEleStart: () =>
+            router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
+        },
+        otype: {
+          type: 'Select',
+          label: '类型',
+          options: Object.entries(otypes).map(([value, { label }]) => ({ value, label })),
+          onChange: (_form: any, to: keyof typeof otypes) => {
+            emitter.emit('update:mprop', {
+              'extra.items.value.display': ['input', 'select', 'pick'].includes(to),
+              'extra.items.encrypt.display': to === 'input'
+            })
+          }
+        },
+        value: {
+          type: 'Input',
+          label: '值',
+          display: false
+        },
+        encrypt: {
+          type: 'Switch',
+          label: '是否加密值',
+          display: false
+        },
+        timeout: {
+          type: 'Number',
+          label: '延时',
+          suffix: '毫秒'
+        }
+      }),
+      lblProp: 'element.iden',
+      inline: false,
+      flatItem: false,
+      subProp: 'otype',
+      newFun: () => PgOper.copy({})
     }
   },
   unknown: {}

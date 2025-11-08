@@ -16,8 +16,7 @@ export default {
   },
   update: (task: Task) => reqPut('task', task.key, task, { ignores: ['fkNode'] }),
   get: (tid: string) => reqGet<Task>('task', tid, { copy: Task.copy }),
-  start: (task: Task) =>
-    reqPut('task', task.key, task, { type: 'api', ignores: ['fkNode'], action: 'start' }),
+  start: (task: Task) => reqPut('task', task.key, undefined, { type: 'api', action: 'start' }),
   stop: (task: Task) => reqDelete('task', task.key, { type: 'api', action: 'stop' }),
   getJob: (name: string) =>
     reqGet('job', undefined, {

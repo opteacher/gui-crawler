@@ -22,42 +22,8 @@ page.on('popup', async newPage => {
   await page.goto(newPage.url())
   await newPage.close()
 })
-await Promise.all([page.goto('https://www.jiuyangongshe.com/'), page.waitForNavigation()])
+await Promise.all([page.goto('https://data.eastmoney.com/stock/tradedetail.html'), page.waitForNavigation()])
 
 
-let container = await page.$(step.extra.container[step.extra.container.idType])
-if (!container) {
-  throw new Error('未找到采集容器！')
-}
-let items = await container.$$(step.extra.item[step.extra.item.idType])
-if (!items || !items.length) {
-  throw new Error('未找到一篇文章！')
-}
-const orgIdx = await page.evaluate('navigation.entries().find(entry => entry.sameDocument).index')
-console.log(orgIdx)
-const title = await items[0].$('.book-title.asdasd.click.fs17-bold')
-await Promise.all([
-  title.click(),
-  page.waitForNavigation()
-])
-console.log('加载完毕')
-const stock = await page.$('.h_source')
-console.log(await stock.getProperty('outerHTML').then(txt => txt.jsonValue()))
-await Promise.all([
-  stock.click(),
-  page.waitForNavigation()
-])
-const curIdx = await page.evaluate('navigation.entries().find(entry => entry.sameDocument).index')
-console.log(curIdx)
-await new Promise(resolve => setTimeout(resolve, 5000))
-
-for (let i = 0; i < curIdx - orgIdx; ++i) {
-  await Promise.all([page.goBack({ waitUntil: 'domcontentloaded' }), page.waitForNavigation()])
-}
-container = await page.$(step.extra.container[step.extra.container.idType])
-items = await container.$$(step.extra.item[step.extra.item.idType])
-console.log(await items[1]
-  .$('.book-title.asdasd.click.fs17-bold')
-  .then(ele => ele.getProperty('textContent'))
-  .then(txt => txt.jsonValue())
-)
+const ele = await page.waitForSelector('//*[@id="dataview"]/div[2]/div[2]/table[1]/thead[1]/tr[1]/th[8]/div[1]')
+await ele.click()

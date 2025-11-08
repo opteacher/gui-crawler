@@ -59,6 +59,22 @@ export class CollectExtra {
   }
 }
 
+export class OperaExtra {
+  opers: PgOper[]
+
+  constructor() {
+    this.opers = []
+  }
+
+  reset() {
+    this.opers = []
+  }
+
+  static copy(src: any, tgt?: OperaExtra, force = false) {
+    return gnlCpy(OperaExtra, src, tgt, { force, cpyMapper: { opers: PgOper.copy } })
+  }
+}
+
 export const stypes = {
   unknown: {
     label: '未知类型',
@@ -86,7 +102,7 @@ export const stypes = {
     color: '#52c41a',
     icon: 'FormOutlined',
     title: '在页面中操作',
-    copy: PgOper.copy
+    copy: OperaExtra.copy
   },
   end: {
     label: '结束节点',

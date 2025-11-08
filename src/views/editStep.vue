@@ -47,7 +47,7 @@
           :mapper="mapper"
           :form="curStep?.extra"
         >
-          <template v-if="curStep?.stype === 'collect'" #binMaps>
+          <template v-if="curStep.stype === 'collect'" #binMaps>
             <EleColcField
               :emitter="emitter"
               :meta-objs="metaObjs"
@@ -57,10 +57,30 @@
               @ele-meta-unbind="() => updateStepExtra()"
             />
           </template>
-          <template v-if="curStep?.stype === 'goto'" #chromePathSFX="{ formState }">
+          <template v-if="curStep.stype === 'goto'" #chromePathSFX="{ formState }">
             <a-button @click="() => onGetChromePath(formState as GotoExtra)">
               获取本地启动文件
             </a-button>
+          </template>
+          <template v-if="curStep.stype === 'opera'" #itemLabel="{ item, index }: any">
+            <a-tooltip>
+              <template #title>{{ item.element[item.element.idType] }}</template>
+              <a
+                v-if="item.element.idType === 'xpath'"
+                class="block"
+                @click="() => emitter.emit('iden-ele', item.element[item.element.idType])"
+              >
+                <template
+                  v-for="(section, i) in item.element[item.element.idType].slice(2).split('/')"
+                >
+                  {{ i === 0 ? '//' : '/' }}{{ section }}
+                  <br />
+                </template>
+              </a>
+            </a-tooltip>
+            <a-tag :color="getProp(otypes, `${item.otype}.color`)">
+              {{ getProp(otypes, `${item.otype}.label`) }}
+            </a-tag>
           </template>
         </FormGroup>
       </template>
@@ -74,7 +94,12 @@
     :bodyStyle="{ height: '60vh' }"
     @cancel="() => (crawlPvw.data = {})"
   >
-    <a-textarea v-if="typeof crawlPvw.data === 'string'" class="h-full" readonly :value="crawlPvw.data" />
+    <a-textarea
+      v-if="typeof crawlPvw.data === 'string'"
+      class="h-full"
+      readonly
+      :value="crawlPvw.data"
+    />
     <EditableTable
       v-else
       v-for="metaObj in (task?.fkMetaobjs as MetaObj[])"
@@ -103,7 +128,7 @@ import PgEleSelect from '@lib/components/PgEleSelect.vue'
 import { useRoute, useRouter } from 'vue-router'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
-import Step, { CollectExtra, GotoExtra } from '@/types/step'
+import Step, { CollectExtra, GotoExtra, OperaExtra } from '@/types/step'
 import stpAPI from '@/apis/step'
 import FormGroup from '@lib/components/FormGroup.vue'
 import Mapper from '@lib/types/mapper'
@@ -142,7 +167,10 @@ const hlEles = computed(() => {
       ['容器', getProp(step, 'extra.container.xpath')],
       ['项', getProp(step, 'extra.item.xpath')],
       ...getProp(step, 'extra.binMaps', []).map((bm: BinMap) => [bm.desc, bm.element.xpath]),
-      ['操作元素', getProp(step, 'extra.element.xpath')]
+      ...getProp(step, 'extra.opers', []).map((oper: PgOper, i: number) => [
+        `操作元素${i + 1}`,
+        oper.element.xpath
+      ])
     ].filter(([_k, v]) => v)
   )
 })
@@ -181,7 +209,13 @@ async function refresh() {
         curURL.value = url.value
         break
       case 'opera':
-        await new Promise(resolve => emitter.emit('exec-opers', [step.extra], resolve))
+        await new Promise(resolve =>
+          emitter.emit(
+            'exec-opers',
+            (step.extra as OperaExtra).opers.filter(oper => oper.otype !== 'pick'),
+            resolve
+          )
+        )
         break
     }
   }
@@ -206,10 +240,7 @@ async function refresh() {
         newPage: {
           type: 'Switch',
           label: '新页面打开',
-          onChange: async (form: GotoExtra, to: boolean) => {
-            form.newPage = to
-            await updateStepExtra()
-          }
+          onChange: async (form: GotoExtra, to: boolean) => onExtValChange(form, 'newPage', to)
         }
       }
       break
@@ -222,7 +253,8 @@ async function refresh() {
           placeholder: '将跳转到页面选择元素',
           disabled: [Cond.create('key', '==', '')],
           onSelEleClear,
-          onEleIdenChange
+          onEleIdenChange,
+          onChange: (form: CollectExtra, ele: PageEle) => onExtValChange(form, 'container', ele)
         },
         item: {
           type: 'PageEleSel',
@@ -241,6 +273,8 @@ async function refresh() {
             ele.index = await pgElSelRef.value?.webviewRef?.executeJavaScript(`
               Array.from(${ctnrEle}.getElementsByTagName('${ele.tagName}')).findIndex(el => el === ${itemEle})
             `)
+            form.item = ele
+            await updateStepExtra()
           }
         },
         binMaps: {
@@ -259,65 +293,67 @@ async function refresh() {
             { label: '只采第一条', value: 'first' }
           ],
           style: 'button',
-          onChange: async (form: CollectExtra, to: 'all' | 'first') => {
-            form.strategy = to
-            await updateStepExtra()
-          }
+          onChange: (form: CollectExtra, to: 'all' | 'first') =>
+            onExtValChange(form, 'strategy', to)
         }
       }
       genBinMapDesc(task.value.fkMetaobjs as MetaObj[], curStep.value.extra)
       break
     case 'opera':
       stpMapper = {
-        element: {
-          type: 'PageEleSel',
-          label: '页面元素',
-          emitter,
-          disabled: [Cond.create('key', '==', '')],
-          onSelEleClear,
-          onEleIdenChange
-        },
-        otype: {
-          type: 'Select',
-          label: '操作方式',
-          options: Object.entries(otypes).map(([value, { label }]) => ({ value, label })),
-          onChange: async (form: PgOper, to: keyof typeof otypes) => {
-            form.otype = to
-            await updateStepExtra()
-          }
-        },
-        value: {
-          type: 'SelOrIpt',
-          label: '值',
-          display: {
-            OR: [
-              Cond.create('otype', '==', 'input'),
-              Cond.create('otype', '==', 'select'),
-              Cond.create('otype', '==', 'pick')
-            ]
-          },
-          options: ['innerText', 'innerHTML', 'outerHTML'].map(itm => ({
-            value: itm,
-            label: itm
-          })),
-          onChange: async (form: PgOper, to: string) => {
-            form.value = to
-            await updateStepExtra()
-          }
-        },
-        encrypt: {
-          type: 'Switch',
-          label: '加密',
-          display: [Cond.create('otype', '==', 'input')]
-        },
-        timeout: {
-          type: 'Number',
-          label: '延时',
-          suffix: '毫秒',
-          onBlur: async (form: PgOper, to: number) => {
-            form.timeout = to
-            await updateStepExtra()
-          }
+        opers: {
+          type: 'EditList',
+          label: '操作流程',
+          mapper: new Mapper({
+            element: {
+              type: 'PageEleSel',
+              label: '页面元素',
+              emitter,
+              disabled: [Cond.create('key', '==', '')],
+              onSelEleClear,
+              onEleIdenChange,
+              onChange: (form: PgOper, ele: PageEle) => onExtValChange(form, 'element', ele)
+            },
+            otype: {
+              type: 'Select',
+              label: '操作方式',
+              options: Object.entries(otypes).map(([value, { label }]) => ({ value, label })),
+              onChange: (form: PgOper, to: keyof typeof otypes) => onExtValChange(form, 'otype', to)
+            },
+            value: {
+              type: 'SelOrIpt',
+              label: '值',
+              display: {
+                OR: [
+                  Cond.create('otype', '==', 'input'),
+                  Cond.create('otype', '==', 'select'),
+                  Cond.create('otype', '==', 'pick')
+                ]
+              },
+              options: ['innerText', 'innerHTML', 'outerHTML'].map(itm => ({
+                value: itm,
+                label: itm
+              })),
+              onChange: (form: PgOper, to: string) => onExtValChange(form, 'value', to)
+            },
+            encrypt: {
+              type: 'Switch',
+              label: '加密',
+              display: [Cond.create('otype', '==', 'input')]
+            },
+            timeout: {
+              type: 'Number',
+              label: '延时',
+              suffix: '毫秒',
+              onBlur: (form: PgOper, to: number) => onExtValChange(form, 'timeout', to)
+            }
+          }),
+          lblProp: 'element.iden',
+          inline: false,
+          flatItem: false,
+          subProp: 'otype',
+          newFun: () => PgOper.copy({}),
+          onChange: (form: OperaExtra, to: PgOper[]) => onExtValChange(form, 'opers', to)
         }
       }
       break
@@ -382,7 +418,7 @@ async function onStoreToDB(moKey: string) {
 async function onGetChromePath(extra: GotoExtra) {
   extra.chromePath = await glbAPI.chrome.path()
 }
-async function onPvwStepClick(form: GotoExtra | CollectExtra | PgOper) {
+async function onPvwStepClick(form: GotoExtra | CollectExtra | OperaExtra) {
   switch (curStep.value?.stype) {
     case 'goto':
       onGotoByURL((form as GotoExtra).url)
@@ -445,6 +481,7 @@ async function onPvwStepClick(form: GotoExtra | CollectExtra | PgOper) {
                   break
               }
             } catch (e) {
+              console.error(e)
               continue
             } finally {
               if (orgIdx !== curIdx) {
@@ -467,17 +504,23 @@ async function onPvwStepClick(form: GotoExtra | CollectExtra | PgOper) {
       break
     case 'opera':
       {
-        const extra = form as PgOper
-        if (extra.otype == 'pick') {
+        const extra = form as OperaExtra
+        if (extra.opers.find(oper => oper.otype === 'pick')) {
           crawlPvw.data = (await pgElSelRef.value?.webviewRef?.executeJavaScript(
-            `JSON.stringify(${getEleByJS(extra.element)}.${extra.value})`
+            'JSON.stringify(' +
+              extra.opers.map(oper => `${getEleByJS(oper.element)}.${oper.value}`) +
+              ')'
           )) as string
           crawlPvw.resVsb = true
         } else {
-          await new Promise(resolve => emitter.emit('exec-opers', [form], resolve))
+          await new Promise(resolve => emitter.emit('exec-opers', extra.opers, resolve))
         }
       }
       break
   }
+}
+async function onExtValChange(form: any, prop: string, to: any) {
+  setProp(form, prop, to)
+  await updateStepExtra()
 }
 </script>
