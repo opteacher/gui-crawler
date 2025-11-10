@@ -46,10 +46,11 @@
       :emitter="emitter"
       :copy="Step.copy"
       :keygen-fun="onNewStepClick"
-      @del:node="onDelStepSubmit"
+      @node-del="onDelStepSubmit"
       @update:nodes="onStepsUpdate"
-      @click:node="onStepCardClick"
-      @add:node="onNewStepSubmit"
+      @node-click="onStepCardClick"
+      @node-add="onNewStepSubmit"
+      @node-intf-click="onStepIoClick"
     >
       <template #extToolBtns>
         <a-float-button tooltip="显示代码" @click="onShowCodesClick">
@@ -68,6 +69,21 @@
         {{ step.extra.item[step.extra.item.idType] }}
       </template>
     </FlowDsgn>
+    <a-drawer
+      :open="stepIntf.ins.key !== ''"
+      class="custom-class"
+      root-class-name="root-class-name"
+      :root-style="{ color: 'blue' }"
+      style="color: red"
+      :placement="stepIntf.ins.side"
+      @close="onStepIoDismiss"
+    >
+      <template #title>
+        {{ curStep?.title }}
+        <a-typography-text type="secondary">{{ stepIntf.ins?.label }}</a-typography-text>
+      </template>
+      <FormGroup :form="stepIntf.ins" :mapper="stepIntf.mapper" />
+    </a-drawer>
   </div>
 </template>
 
@@ -76,7 +92,7 @@ import { useRoute, useRouter } from 'vue-router'
 import FlowDsgn from '@lib/components/FlowDsgn.vue'
 import { createVNode, onMounted, reactive, ref } from 'vue'
 import Mapper from '@lib/types/mapper'
-import Step, { onExecToStepClick, Stype, stypes } from '@/types/step'
+import Step, { ControlExtra, ctrlTypes, onExecToStepClick, Stype, stypes } from '@/types/step'
 import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
@@ -99,6 +115,7 @@ import _ from 'lodash'
 import PgOper, { otypes } from '@lib/types/pgOper'
 import { NdIntf } from '@lib/types/node'
 import { v4 as uuid } from 'uuid'
+import FormGroup from '@lib/components/FormGroup.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -125,13 +142,13 @@ const mapperDict = {
   collect: {
     container: {
       type: 'PageEleSel',
-      label: '容器',
+      label: '采集容器',
       onSelEleStart: () =>
         router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
     },
     item: {
       type: 'PageEleSel',
-      label: '项',
+      label: '采集项',
       onSelEleStart: () =>
         router.push(`/gui-crawler/task/${task.value.key}/step/${curStep.value?.key}/edit`)
     },
@@ -141,7 +158,7 @@ const mapperDict = {
     },
     strategy: {
       type: 'Radio',
-      label: '策略',
+      label: '采集策略',
       options: [
         { label: '采集当页所有', value: 'all' },
         { label: '只采第一条', value: 'first' }
@@ -195,10 +212,24 @@ const mapperDict = {
       newFun: () => PgOper.copy({})
     }
   },
-  unknown: {}
+  unknown: {},
+  control: {
+    ctype: {
+      type: 'Select',
+      label: '控制类型',
+      rules: [{ required: true, message: '必须先选择类型！', trigger: 'change' }],
+      options: Object.entries(ctrlTypes).map(([value, { label }]) => ({ value, label })),
+      disabled: [Cond.create('key', '!=', '')]
+    },
+    param: {
+      type: 'SelOrIpt',
+      label: '控制参数'
+    }
+  },
+  cond: {}
 }
 const avaStypes = ref<string[]>(
-  Object.keys(stypes).filter(st => !['end', 'unknown', 'oper'].includes(st))
+  Object.keys(stypes).filter(st => !['end', 'unknown', 'cond'].includes(st))
 )
 const mapper = new Mapper({
   title: {
@@ -248,6 +279,19 @@ const metaState = reactive({
   mapper: new Mapper(metaMapper)
 })
 const curStep = ref<Step>()
+const stepIntf = reactive({
+  ins: new NdIntf(),
+  mapper: new Mapper({
+    pvwBtn: {
+      type: 'Button',
+      inner: '预览',
+      offset: 4,
+      onClick: () => {
+        console.log('TTTTTTTTTTT')
+      }
+    }
+  })
+})
 
 onMounted(refresh)
 
@@ -355,11 +399,59 @@ function onStepTitleAutoGen(step: Step) {
   emitter.emit('update:dprop', { title })
 }
 async function onNewStepSubmit(newStp: Step, callback: Function) {
-  switch(newStp.stype) {
+  switch (newStp.stype) {
     case 'collect':
       newStp.intfs.push(NdIntf.copy({ key: uuid(), label: '采集数据' }))
+      await stpAPI.update(pickOrIgnore(newStp, ['key', 'intfs'], false))
       break
+    case 'control': {
+      newStp.intfs.push(
+        NdIntf.copy({
+          key: uuid(),
+          label: '控制参数',
+          desc: '对于条件步骤，参数为条件对比变量；对于循环步骤，参数为递归数组',
+          niType: 'import',
+          side: 'left'
+        })
+      )
+      await stpAPI.update(pickOrIgnore(newStp, ['key', 'intfs'], false))
+      const endStep = (await new Promise(resolve =>
+        emitter.emit(
+          'add:node',
+          {
+            title: stypes.end.title,
+            stype: 'end',
+            relative: newStp.key,
+            previous: [newStp.key],
+            nexts: newStp.nexts
+          },
+          resolve
+        )
+      )) as Step
+      if ((newStp.extra as ControlExtra).ctype === 'switch') {
+        await new Promise(resolve =>
+          emitter.emit(
+            'add:node',
+            {
+              title: stypes.cond.title,
+              stype: 'cond',
+              previous: [newStp.key],
+              nexts: [endStep.key]
+            },
+            resolve
+          )
+        )
+      }
+    }
   }
   callback()
+}
+function onStepIoClick(step: Step, io: NdIntf) {
+  NdIntf.copy(io, stepIntf.ins, true)
+  curStep.value = step
+}
+function onStepIoDismiss() {
+  stepIntf.ins.reset()
+  curStep.value = undefined
 }
 </script>

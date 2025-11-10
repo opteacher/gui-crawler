@@ -75,6 +75,46 @@ export class OperaExtra {
   }
 }
 
+export const ctrlTypes = {
+  'switch': { label: '条件' },
+  'for': { label: '循环' }
+}
+
+export class ControlExtra {
+  ctype: keyof typeof ctrlTypes
+  param: string
+
+  constructor() {
+    this.ctype = 'switch'
+    this.param = ''
+  }
+
+  reset() {
+    this.ctype = 'switch'
+    this.param = ''
+  }
+
+  static copy(src: any, tgt?: ControlExtra, force = false) {
+    return gnlCpy(ControlExtra, src, tgt, { force })
+  }
+}
+
+export class CondExtra {
+  code: string
+
+  constructor() {
+    this.code = ''
+  }
+
+  reset() {
+    this.code = ''
+  }
+
+  static copy(src: any, tgt?: CondExtra, force = false) {
+    return gnlCpy(CondExtra, src, tgt, { force })
+  }
+}
+
 export const stypes = {
   unknown: {
     label: '未知类型',
@@ -110,6 +150,20 @@ export const stypes = {
     icon: 'StopOutlined',
     title: '流程结束',
     copy: () => null
+  },
+  control: {
+    label: '控制节点',
+    color: '#cb4cfa',
+    icon: 'ControlOutlined',
+    title: '控制流程走向',
+    copy: ControlExtra.copy
+  },
+  cond: {
+    label: '条件节点',
+    color: '#33b8b1ff',
+    icon: 'ApartmentOutlined',
+    title: '与控制节点参数做比较',
+    copy: CondExtra.copy
   }
 }
 
