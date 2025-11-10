@@ -49,7 +49,7 @@
       @del:node="onDelStepSubmit"
       @update:nodes="onStepsUpdate"
       @click:node="onStepCardClick"
-      @add:node="(_v: any, callback: Function) => callback()"
+      @add:node="onNewStepSubmit"
     >
       <template #extToolBtns>
         <a-float-button tooltip="显示代码" @click="onShowCodesClick">
@@ -97,6 +97,8 @@ import CodeEditor from '@lib/components/CodeEditor.vue'
 import metaAPI from '@/apis/meta'
 import _ from 'lodash'
 import PgOper, { otypes } from '@lib/types/pgOper'
+import { NdIntf } from '@lib/types/node'
+import { v4 as uuid } from 'uuid'
 
 const route = useRoute()
 const router = useRouter()
@@ -351,5 +353,13 @@ function onStepTitleAutoGen(step: Step) {
     title = title.replace(`[${key}]`, (val as any).toString() || 'XXXX')
   }
   emitter.emit('update:dprop', { title })
+}
+async function onNewStepSubmit(newStp: Step, callback: Function) {
+  switch(newStp.stype) {
+    case 'collect':
+      newStp.intfs.push(NdIntf.copy({ key: uuid(), label: '采集数据' }))
+      break
+  }
+  callback()
 }
 </script>
