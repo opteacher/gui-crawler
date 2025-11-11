@@ -92,7 +92,15 @@ import { useRoute, useRouter } from 'vue-router'
 import FlowDsgn from '@lib/components/FlowDsgn.vue'
 import { createVNode, onMounted, reactive, ref } from 'vue'
 import Mapper from '@lib/types/mapper'
-import Step, { ControlExtra, ctrlTypes, onExecToStepClick, Stype, stypes } from '@/types/step'
+import Step, {
+  ControlExtra,
+  ctrlTypes,
+  getAvaParams,
+  onExecToStepClick,
+  OperaExtra,
+  Stype,
+  stypes
+} from '@/types/step'
 import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
@@ -116,11 +124,14 @@ import PgOper, { otypes } from '@lib/types/pgOper'
 import { NdIntf } from '@lib/types/node'
 import { v4 as uuid } from 'uuid'
 import FormGroup from '@lib/components/FormGroup.vue'
+import Column from '@lib/types/column'
+import { cmpOpns, relatives } from '@lib/types'
 
 const route = useRoute()
 const router = useRouter()
 const task = ref<Task>(new Task())
 const steps = reactive<Step[]>([])
+const curStep = ref<Step>()
 const stpDict = ref<Record<string, Step>>({})
 const mapperDict = {
   goto: {
@@ -223,13 +234,54 @@ const mapperDict = {
     },
     param: {
       type: 'SelOrIpt',
-      label: '控制参数'
+      label: '控制参数',
+      placeholder: '可以设为True，则以下条件节点独立判断',
+      options: [{ value: 'true', label: '真' }]
     }
   },
-  cond: {}
+  condition: {
+    conds: {
+      type: 'Table',
+      label: '条件集',
+      desc: '如果父控制步骤设置了参数，则这里只需要设置值即可，判断依据是【控制参数 == 值】',
+      value: curStep.value?.extra.conds,
+      columns: [
+        new Column('关系', 'relative', { width: 100 }),
+        new Column('键', 'prop', { width: 100 }),
+        new Column('比较', 'compare', { width: 100 }),
+        new Column('值', 'value', { width: 100 })
+      ],
+      mapper: new Mapper({
+        relative: {
+          type: 'Select',
+          label: '关系',
+          options: Object.entries(relatives).map(([value, label]) => ({ value, label }))
+        },
+        prop: {
+          type: 'SelOrIpt',
+          label: '键',
+          rules: [{ required: true, message: '必须输入或选择键！', trigger: 'change' }]
+        },
+        compare: {
+          type: 'Select',
+          label: '比较',
+          rules: [{ required: true, message: '必须选择比较符！', trigger: 'change' }],
+          options: cmpOpns
+        },
+        value: {
+          type: 'SelOrIpt',
+          label: '值',
+          rules: [{ required: true, message: '必须输入值！' }]
+        }
+      }),
+      newFun: () => ({ relative: 'AND', prop: undefined, compare: '==', value: undefined }),
+      genIdFun: () => uuid(),
+      onChange: (step: Step) => stpAPI.update(pickOrIgnore(step, ['key', 'extra'], false))
+    }
+  }
 }
 const avaStypes = ref<string[]>(
-  Object.keys(stypes).filter(st => !['end', 'unknown', 'cond'].includes(st))
+  Object.keys(stypes).filter(st => !['end', 'unknown', 'condition'].includes(st))
 )
 const mapper = new Mapper({
   title: {
@@ -253,6 +305,16 @@ const mapper = new Mapper({
     },
     onChange: (editing: Step, stype: keyof typeof stypes) => {
       emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[stype]) })
+      switch (stype) {
+        case 'control':
+          emitter.emit('update:mprop', {
+            'extra.items.param.options': getAvaParams(editing, stpDict.value).map(intf => ({
+              value: intf.desc,
+              label: intf.label
+            }))
+          })
+          break
+      }
       if (!editing.key) {
         emitter.emit('update:dprop', { extra: stype in stypes ? stypes[stype].copy({}) : {} })
       }
@@ -278,7 +340,6 @@ const metaState = reactive({
   emitter: new TinyEmitter(),
   mapper: new Mapper(metaMapper)
 })
-const curStep = ref<Step>()
 const stepIntf = reactive({
   ins: new NdIntf(),
   mapper: new Mapper({
@@ -298,6 +359,23 @@ onMounted(refresh)
 async function refresh() {
   task.value = await tskAPI.get(route.params.tid as string)
   steps.splice(0, steps.length, ...(await stpAPI.all()))
+  for (const step of steps) {
+    switch (step.stype) {
+      case 'opera':
+        step.intfs = (step.extra as OperaExtra).opers
+          .filter(oper => oper.otype === 'pick')
+          .map(oper =>
+            NdIntf.copy({
+              key: uuid(),
+              side: 'right',
+              niType: 'output',
+              label: oper.element.iden,
+              desc: oper.value
+            })
+          )
+        break
+    }
+  }
   stpDict.value = Object.fromEntries(steps.map(stp => [stp.key, stp]))
   emitter.emit('refresh')
 }
@@ -305,17 +383,22 @@ async function onNewStepClick(step: Step) {
   return stpAPI.add(step).then(newStp => newStp.key)
 }
 async function onDelStepSubmit(step: Step, callback: Function) {
-  if (step.stype === 'opera') {
-    const keys = _.uniq(
-      getFlowRngKeys(
-        Object.fromEntries(steps.map(stp => [stp.key, stp])),
-        step.key,
-        step.relative as string
-      )
-    ).filter(key => key !== step.key)
-    await Promise.all(
-      keys.map(key => new Promise(resolve => emitter.emit('del:node', key, resolve)))
-    )
+  switch (step.stype) {
+    case 'control':
+      {
+        const keys = _.uniq(
+          getFlowRngKeys(
+            Object.fromEntries(steps.map(stp => [stp.key, stp])),
+            step.key,
+            step.relative as string
+          )
+        ).filter(key => key !== step.key)
+        for (const key of keys) {
+          await new Promise(resolve => emitter.emit('del:node', key, resolve))
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+      break
   }
   await stpAPI.remove(step)
   callback()
@@ -404,45 +487,49 @@ async function onNewStepSubmit(newStp: Step, callback: Function) {
       newStp.intfs.push(NdIntf.copy({ key: uuid(), label: '采集数据' }))
       await stpAPI.update(pickOrIgnore(newStp, ['key', 'intfs'], false))
       break
-    case 'control': {
-      newStp.intfs.push(
-        NdIntf.copy({
-          key: uuid(),
-          label: '控制参数',
-          desc: '对于条件步骤，参数为条件对比变量；对于循环步骤，参数为递归数组',
-          niType: 'import',
-          side: 'left'
-        })
-      )
-      await stpAPI.update(pickOrIgnore(newStp, ['key', 'intfs'], false))
-      const endStep = (await new Promise(resolve =>
-        emitter.emit(
-          'add:node',
-          {
-            title: stypes.end.title,
-            stype: 'end',
-            relative: newStp.key,
-            previous: [newStp.key],
-            nexts: newStp.nexts
-          },
-          resolve
+    case 'control':
+      {
+        newStp.intfs.push(
+          NdIntf.copy({
+            key: uuid(),
+            label: '控制参数',
+            desc: '对于条件步骤，参数为条件对比变量；对于循环步骤，参数为递归数组',
+            niType: 'import',
+            side: 'left'
+          })
         )
-      )) as Step
-      if ((newStp.extra as ControlExtra).ctype === 'switch') {
-        await new Promise(resolve =>
+        await stpAPI.update(pickOrIgnore(newStp, ['key', 'intfs'], false))
+        const endStep = (await new Promise(resolve =>
           emitter.emit(
             'add:node',
             {
-              title: stypes.cond.title,
-              stype: 'cond',
+              title: stypes.end.title,
+              stype: 'end',
+              delable: false,
+              relative: newStp.key,
               previous: [newStp.key],
-              nexts: [endStep.key]
+              nexts: newStp.nexts
             },
             resolve
           )
-        )
+        )) as Step
+        if ((newStp.extra as ControlExtra).ctype === 'switch') {
+          await new Promise(resolve =>
+            emitter.emit(
+              'add:node',
+              {
+                title: stypes.condition.title,
+                stype: 'condition',
+                extra: stypes.condition.copy({}),
+                previous: [newStp.key],
+                nexts: [endStep.key]
+              },
+              resolve
+            )
+          )
+        }
       }
-    }
+      break
   }
   callback()
 }
@@ -451,7 +538,10 @@ function onStepIoClick(step: Step, io: NdIntf) {
   curStep.value = step
 }
 function onStepIoDismiss() {
-  stepIntf.ins.reset()
-  curStep.value = undefined
+  stepIntf.ins.key = ''
+  setTimeout(() => {
+    stepIntf.ins.reset()
+    curStep.value = undefined
+  }, 500)
 }
 </script>

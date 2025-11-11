@@ -1,4 +1,4 @@
-import Node from '@lib/types/node'
+import Node, { NdIntf } from '@lib/types/node'
 import { getProp, gnlCpy } from '@lib/utils'
 import Task from './task'
 import BinMap from './binMap'
@@ -8,6 +8,7 @@ import { PlayCircleOutlined } from '@ant-design/icons-vue'
 import { notification } from 'ant-design-vue'
 import router from '@/router'
 import { createVNode } from 'vue'
+import { Cond, relatives } from '@lib/types'
 
 export class GotoExtra {
   chromePath: string
@@ -76,8 +77,8 @@ export class OperaExtra {
 }
 
 export const ctrlTypes = {
-  'switch': { label: '条件' },
-  'for': { label: '循环' }
+  switch: { label: '条件' },
+  for: { label: '循环' }
 }
 
 export class ControlExtra {
@@ -100,14 +101,14 @@ export class ControlExtra {
 }
 
 export class CondExtra {
-  code: string
+  conds: { relative: keyof typeof relatives; conds: Cond[] }[]
 
   constructor() {
-    this.code = ''
+    this.conds = []
   }
 
   reset() {
-    this.code = ''
+    this.conds = []
   }
 
   static copy(src: any, tgt?: CondExtra, force = false) {
@@ -158,7 +159,7 @@ export const stypes = {
     title: '控制流程走向',
     copy: ControlExtra.copy
   },
-  cond: {
+  condition: {
     label: '条件节点',
     color: '#33b8b1ff',
     icon: 'ApartmentOutlined',
@@ -223,4 +224,12 @@ export default class Step extends Node {
       : []
     return tgt
   }
+}
+
+export function getAvaParams(step: Step, stpDict: Record<string, Step>): NdIntf[] {
+  let intfs = step.intfs.filter(intf => intf.niType === 'output')
+  for (const pvsKey of step.previous) {
+    intfs = intfs.concat(getAvaParams(stpDict[pvsKey], stpDict))
+  }
+  return intfs
 }

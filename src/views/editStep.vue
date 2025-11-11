@@ -388,7 +388,7 @@ async function onEleIdenChange(prop: string, iden: string) {
   setProp(stpDict.value, `${sid}.extra.${prop}.idType`, iden)
   await updateStepExtra()
 }
-async function updateStepExtra(sid = route.params.sid as string) {
+function updateStepExtra(sid = route.params.sid as string) {
   return stpAPI.update(pickOrIgnore(stpDict.value[sid], ['key', 'extra'], false))
 }
 function genBinMapDesc(metaObjs: MetaObj[], colcExtra: CollectExtra) {
