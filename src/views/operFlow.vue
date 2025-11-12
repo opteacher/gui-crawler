@@ -92,15 +92,8 @@ import { useRoute, useRouter } from 'vue-router'
 import FlowDsgn from '@lib/components/FlowDsgn.vue'
 import { createVNode, onMounted, reactive, ref } from 'vue'
 import Mapper from '@lib/types/mapper'
-import Step, {
-  ControlExtra,
-  ctrlTypes,
-  getAvaVars,
-  onExecToStepClick,
-  OperaExtra,
-  Stype,
-  stypes
-} from '@/types/step'
+import Step, { getAvaVars, onExecToStepClick } from '@/types/step'
+import { OperaExtra, stypes, ControlExtra, ctrlTypes, Stype } from '@/types/stpExtra'
 import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
