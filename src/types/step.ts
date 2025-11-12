@@ -226,10 +226,10 @@ export default class Step extends Node {
   }
 }
 
-export function getAvaParams(step: Step, stpDict: Record<string, Step>): NdIntf[] {
+export function getAvaVars(step: Step, stpDict: Record<string, Step>): NdIntf[] {
   let intfs = step.intfs.filter(intf => intf.niType === 'output')
   for (const pvsKey of step.previous) {
-    intfs = intfs.concat(getAvaParams(stpDict[pvsKey], stpDict))
+    intfs = intfs.concat(getAvaVars(stpDict[pvsKey], stpDict))
   }
   return intfs
 }

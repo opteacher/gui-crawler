@@ -95,7 +95,7 @@ import Mapper from '@lib/types/mapper'
 import Step, {
   ControlExtra,
   ctrlTypes,
-  getAvaParams,
+  getAvaVars,
   onExecToStepClick,
   OperaExtra,
   Stype,
@@ -105,7 +105,7 @@ import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
 import { TinyEmitter } from 'tiny-emitter'
-import { getFlowRngKeys, newOne, pickOrIgnore } from '@lib/utils'
+import { getFlowRngKeys, newOne, pickOrIgnore, setProp } from '@lib/utils'
 import { Cond } from '@lib/types'
 import MetaObj, { metaMapper } from '@/types/metaObj'
 import {
@@ -303,22 +303,8 @@ const mapper = new Mapper({
     disabled: {
       OR: [Cond.create('key', '!=', ''), Cond.create('previous.length', '==', 0)]
     },
-    onChange: (editing: Step, stype: keyof typeof stypes) => {
-      emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[stype]) })
-      switch (stype) {
-        case 'control':
-          emitter.emit('update:mprop', {
-            'extra.items.param.options': getAvaParams(editing, stpDict.value).map(intf => ({
-              value: intf.desc,
-              label: intf.label
-            }))
-          })
-          break
-      }
-      if (!editing.key) {
-        emitter.emit('update:dprop', { extra: stype in stypes ? stypes[stype].copy({}) : {} })
-      }
-    }
+    onChange: (editing: Step, stype: keyof typeof stypes) =>
+      onStypeChange(setProp(editing, 'stype', stype))
   },
   extra: {
     type: 'FormGroup',
@@ -467,12 +453,7 @@ function onStepCardClick(step: Step) {
     emitter.emit('update:dprop', { stype: 'goto' })
     step.stype = 'goto'
   }
-  emitter.emit('update:mprop', { 'extra.items': new Mapper(mapperDict[step.stype as Stype]) })
-  if (!step.key) {
-    emitter.emit('update:dprop', {
-      extra: step.stype && step.stype in stypes ? stypes[step.stype].copy({}) : {}
-    })
-  }
+  onStypeChange(step)
 }
 function onStepTitleAutoGen(step: Step) {
   let title = stypes[step.stype as Stype].title
@@ -494,7 +475,7 @@ async function onNewStepSubmit(newStp: Step, callback: Function) {
             key: uuid(),
             label: '控制参数',
             desc: '对于条件步骤，参数为条件对比变量；对于循环步骤，参数为递归数组',
-            niType: 'import',
+            niType: 'input',
             side: 'left'
           })
         )
@@ -543,5 +524,25 @@ function onStepIoDismiss() {
     stepIntf.ins.reset()
     curStep.value = undefined
   }, 500)
+}
+function onStypeChange(step: Step) {
+  emitter.emit('update:mprop', {
+    'extra.items': new Mapper(step.stype ? mapperDict[step.stype] : {})
+  })
+  switch (step.stype) {
+    case 'control':
+      emitter.emit('update:mprop', {
+        'extra.items.param.options': getAvaVars(step, stpDict.value).map(intf => ({
+          label: intf.label,
+          value: intf.key
+        }))
+      })
+      break
+  }
+  if (!step.key) {
+    emitter.emit('update:dprop', {
+      extra: step.stype ? stypes[step.stype].copy({}) : {}
+    })
+  }
 }
 </script>
