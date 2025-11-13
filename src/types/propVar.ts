@@ -4,7 +4,7 @@ import { gnlCpy } from "@lib/utils"
 export default class PropVar {
   name: string
   typo: BaseTypes
-  dftVal: any
+  value: any
 
   constructor() {
     this.name = ''
@@ -14,7 +14,7 @@ export default class PropVar {
   reset() {
     this.name = ''
     this.typo = 'Unknown'
-    this.dftVal = undefined
+    this.value = undefined
   }
 
   static copy(src: any, tgt?: PropVar, force = false) {

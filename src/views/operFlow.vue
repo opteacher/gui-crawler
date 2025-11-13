@@ -271,6 +271,9 @@ const mapperDict = {
       genIdFun: () => uuid(),
       onChange: (step: Step) => stpAPI.update(pickOrIgnore(step, ['key', 'extra'], false))
     }
+  },
+  processing: {
+    
   }
 }
 const avaStypes = ref<string[]>(

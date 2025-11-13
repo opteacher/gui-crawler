@@ -3,6 +3,7 @@ import PageEle from '@lib/types/pageEle'
 import PgOper from '@lib/types/pgOper'
 import PropVar from './propVar'
 import { gnlCpy } from '@lib/utils'
+import { Method } from 'axios'
 
 export class GotoExtra {
   chromePath: string
@@ -110,6 +111,53 @@ export class CondExtra {
   }
 }
 
+export class ReqInfo {
+  url: string
+  port: number
+  method: Method
+  body: object
+  prop: string
+
+  constructor() {
+    this.url = ''
+    this.port = -1
+    this.method = 'GET'
+    this.body = {}
+    this.prop = ''
+  }
+
+  reset() {
+    this.url = ''
+    this.port = -1
+    this.method = 'GET'
+    this.body = {}
+    this.prop = ''
+  }
+
+  static copy(src: any, tgt?: ReqInfo, force = false) {
+    gnlCpy(ReqInfo, src, tgt, { force })
+  }
+}
+
+export class PcsingExtra {
+  storeToDB: boolean
+  pushPoint: ReqInfo[]
+
+  constructor() {
+    this.storeToDB = true
+    this.pushPoint = []
+  }
+
+  reset() {
+    this.storeToDB = true
+    this.pushPoint = []
+  }
+
+  static copy(src: any, tgt?: PcsingExtra, force = false) {
+    return gnlCpy(PcsingExtra, src, tgt, { force, cpyMapper: { pushPoint: ReqInfo.copy } })
+  }
+}
+
 export const stypes = {
   unknown: {
     label: '未知类型',
@@ -159,6 +207,13 @@ export const stypes = {
     icon: 'ApartmentOutlined',
     title: '与控制节点参数做比较',
     copy: CondExtra.copy
+  },
+  processing: {
+    label: '数据处理',
+    color: '#4043e7ff',
+    icon: 'DatabaseOutlined',
+    title: '对采集的数据加工、处理和存储/推送',
+    copy: PcsingExtra.copy
   }
 }
 
