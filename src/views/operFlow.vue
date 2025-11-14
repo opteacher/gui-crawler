@@ -93,13 +93,13 @@ import FlowDsgn from '@lib/components/FlowDsgn.vue'
 import { createVNode, onMounted, reactive, ref } from 'vue'
 import Mapper from '@lib/types/mapper'
 import Step, { getAvaVars, onExecToStepClick } from '@/types/step'
-import { OperaExtra, stypes, ControlExtra, ctrlTypes, Stype } from '@/types/stpExtra'
+import { OperaExtra, stypes, ControlExtra, ctrlTypes, Stype, ReqInfo } from '@/types/stpExtra'
 import stpAPI from '@/apis/step'
 import Task from '@/types/task'
 import tskAPI from '@/apis/task'
 import { TinyEmitter } from 'tiny-emitter'
 import { getFlowRngKeys, newOne, pickOrIgnore, setProp } from '@lib/utils'
-import { Cond } from '@lib/types'
+import { Cond, methods } from '@lib/types'
 import MetaObj, { metaMapper } from '@/types/metaObj'
 import {
   PlusOutlined,
@@ -273,7 +273,43 @@ const mapperDict = {
     }
   },
   processing: {
-    
+    storeToDB: {
+      type: 'Switch',
+      label: '存入数据库'
+    },
+    pushPoints: {
+      type: 'EditList',
+      label: '推送接口',
+      inline: false,
+      flatItem: false,
+      mapper: new Mapper({
+        url: {
+          type: 'Textarea',
+          label: 'URL或Host',
+          rules: [{ required: true, message: '必须填入URL或Host！' }]
+        },
+        port: {
+          type: 'Number',
+          label: '端口'
+        },
+        method: {
+          type: 'Select',
+          label: '请求方式',
+          options: methods.map(m => ({ value: m, label: m }))
+        },
+        body: {
+          type: 'JsonEditor',
+          label: '请求体',
+          desc: '默认则直接使用采集的原数据'
+        },
+        prop: {
+          type: 'Input',
+          label: '字段名',
+          placeholder: '规则跟getProp和setProp一致'
+        }
+      }),
+      newFun: () => newOne(ReqInfo)
+    }
   }
 }
 const avaStypes = ref<string[]>(

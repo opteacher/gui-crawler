@@ -75,7 +75,7 @@ import { TinyEmitter } from 'tiny-emitter'
 import PageEle from '@lib/types/pageEle'
 import MetaObj from '@/types/metaObj'
 import { setProp, getProp, pickOrIgnore, getEleByJS } from '@lib/utils'
-import { CollectExtra } from '@/types/step'
+import { CollectExtra } from '@/types/stpExtra'
 import { MinusCircleOutlined } from '@ant-design/icons-vue'
 import { v4 as uuid } from 'uuid'
 import PgOper, { otypes } from '@lib/types/pgOper'
@@ -190,7 +190,7 @@ const mapper = reactive(
         setProp(
           mapper,
           'proper.options',
-          moDict.value[key].propers.map(prop => ({ label: prop.label, value: prop.key }))
+          moDict.value[key].propers.map(prop => ({ label: prop.label, value: prop.name }))
         )
       }
     },
@@ -226,7 +226,7 @@ const mapper = reactive(
             const adjBinMap = BinMap.copy(binMap)
             adjBinMap.key = uuid()
             const metaObj = props.metaObjs.find(mo => mo.key === adjBinMap.metaObj)
-            const binProp = metaObj?.propers.find(p => p.key === adjBinMap.proper)
+            const binProp = metaObj?.propers.find(p => p.name === adjBinMap.proper)
             adjBinMap.desc = `${metaObj?.label}.${binProp?.label}`
             stepExtra.value.binMaps.push(adjBinMap)
             emit('eleMetaBind', adjBinMap)
@@ -273,7 +273,7 @@ function getEleIdenLabel(binMap: BinMap) {
 function getMetaPropLabel(binMap: BinMap) {
   return [
     getProp(moDict.value, `${binMap.metaObj}.label`),
-    getProp(moDict.value, `${binMap.metaObj}.propers[{key:${binMap.proper}}].label`)
+    getProp(moDict.value, `${binMap.metaObj}.propers[{name:${binMap.proper}}].label`)
   ].join(' . ')
 }
 function onMetaObjClick(binMap: BinMap) {

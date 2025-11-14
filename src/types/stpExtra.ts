@@ -141,16 +141,16 @@ export class ReqInfo {
 
 export class PcsingExtra {
   storeToDB: boolean
-  pushPoint: ReqInfo[]
+  pushPoints: ReqInfo[]
 
   constructor() {
     this.storeToDB = true
-    this.pushPoint = []
+    this.pushPoints = []
   }
 
   reset() {
     this.storeToDB = true
-    this.pushPoint = []
+    this.pushPoints = []
   }
 
   static copy(src: any, tgt?: PcsingExtra, force = false) {

@@ -395,7 +395,7 @@ function updateStepExtra(sid = route.params.sid as string) {
 function genBinMapDesc(metaObjs: MetaObj[], colcExtra: CollectExtra) {
   for (const binMap of colcExtra.binMaps) {
     const metaObj = metaObjs.find(mo => mo.key === binMap.metaObj)
-    const binProp = metaObj?.propers.find(p => p.key === binMap.proper)
+    const binProp = metaObj?.propers.find(p => p.name === binMap.proper)
     binMap.desc = `${metaObj?.label}.${binProp?.label}`
   }
 }
@@ -443,7 +443,8 @@ async function onPvwStepClick(form: GotoExtra | CollectExtra | OperaExtra) {
         await getCtnrAndItem()
         const itmLen = await webview?.executeJavaScript('items.length')
         const colcData = Object.fromEntries(metaObjs.map(mo => [mo.key, [] as any[]]))
-        for (let i = 0; i < (extra.strategy === 'first' ? 1 : itmLen); ++i) {
+        let colced = 0
+        for (let i = 0; i < itmLen; ++i) {
           const colcItem = Object.fromEntries(metaObjs.map(mo => [mo.key, {}]))
           for (const binMap of extra.binMaps) {
             const orgIdx = await webview?.executeJavaScript(
@@ -458,29 +459,23 @@ async function onPvwStepClick(form: GotoExtra | CollectExtra | OperaExtra) {
             // 前置操作未造成页面变化，则使用items[i]作为父；反之页面已变，则全页面搜索元素
             const ele = getEleByJS(binMap.element, orgIdx === curIdx ? `items[${i}]` : undefined)
             const binMeta = metaObjs.find(m => m.key === binMap.metaObj)
-            const binProp = binMeta?.propers.find(p => p.key === binMap.proper)
-            if (!binMeta || !binProp) {
+            if (!binMeta) {
               continue
             }
+            const colcProp = `${binMeta.key}.${binMap.proper}`
             try {
+              let content = null
               switch (binMap.ctype) {
                 case 'text':
-                  setProp(
-                    colcItem,
-                    `${binMeta.key}.${binProp.name}`,
-                    await webview?.executeJavaScript(`${ele}.innerText`)
-                  )
+                  content = await webview?.executeJavaScript(`${ele}.innerText`)
                   break
                 case 'markdown':
-                  setProp(
-                    colcItem,
-                    `${binMeta.key}.${binProp.name}`,
-                    tdSvc.turndown(await webview?.executeJavaScript(`${ele}.outerHTML`))
-                  )
+                  content = tdSvc.turndown(await webview?.executeJavaScript(`${ele}.outerHTML`))
                   break
                 case 'file':
                   break
               }
+              setProp(colcItem, colcProp, content)
             } catch (e) {
               console.error(e)
               continue
@@ -493,10 +488,29 @@ async function onPvwStepClick(form: GotoExtra | CollectExtra | OperaExtra) {
               }
             }
           }
-          for (const [key, val] of Object.entries(colcItem)) {
-            if (Object.keys(val).length) {
-              colcData[key].push(val)
+          const chkReq = (moKey: string, item: any) => {
+            const mprops = Object.keys(item)
+            if (!mprops.length) {
+              return false
             }
+            for (const bm of extra.binMaps.filter(bm => bm.required)) {
+              if (moKey !== bm.metaObj) {
+                continue
+              }
+              if (!bm.proper || !item[bm.proper]) {
+                return false
+              }
+            }
+            return true
+          }
+          for (const [key, val] of Object.entries(colcItem)) {
+            if (chkReq(key, val)) {
+              colcData[key].push(val)
+              ++colced
+            }
+          }
+          if (colced >= (extra.strategy === 'first' ? 1 : itmLen)) {
+            break
           }
         }
         crawlPvw.data = colcData
