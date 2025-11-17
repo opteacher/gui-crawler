@@ -3,8 +3,8 @@ import Task, { units } from '@/types/task'
 import EditableTable from '@lib/components/EditableTable.vue'
 import Column from '@lib/types/column'
 import Mapper from '@lib/types/mapper'
-import { newOne, getProp, until } from '@lib/utils'
-import { onMounted, reactive } from 'vue'
+import { newOne, getProp } from '@lib/utils'
+import { onMounted, reactive, watch } from 'vue'
 import tskAPI from '@/apis/task'
 import { PlayCircleOutlined, PauseCircleOutlined, SyncOutlined } from '@ant-design/icons-vue'
 import { TinyEmitter } from 'tiny-emitter'
@@ -12,6 +12,7 @@ import router from '@/router'
 import MetaObj from '@/types/metaObj'
 import rcdAPI from '@/apis/record'
 import { typeDftVal } from '@lib/types'
+import Paho from 'paho-mqtt'
 
 const columns = reactive<Column[]>([
   new Column('名称', 'name'),
@@ -50,11 +51,51 @@ const emitter = new TinyEmitter()
 const records = reactive({
   emitter: new TinyEmitter()
 })
+const logger = reactive<{
+  client?: Paho.Client
+  visible: boolean
+  content: string
+}>({
+  client: undefined,
+  visible: false,
+  content: ''
+})
 
 onMounted(() => {})
+watch(
+  () => logger.visible,
+  (vsb: boolean) => {
+    logger.content = ''
+    if (vsb) {
+      logger.client = new Paho.Client('192.168.1.11', 8083, 'emqx_gclog_6e8f21')
+      logger.client.onConnectionLost = responseObject => {
+        if (responseObject.errorCode !== 0) {
+          console.log('onConnectionLost:' + responseObject.errorMessage)
+        }
+      }
+      logger.client.onMessageArrived = message => {
+        console.log('onMessageArrived:' + message.payloadString)
+        logger.content += message.payloadString
+      }
+      logger.client.connect({
+        onSuccess: () => {
+          // Once a connection has been made, make a subscription and send a message.
+          console.log('onConnect')
+          logger.client?.subscribe('World')
+          const message = new Paho.Message('Hello')
+          message.destinationName = 'World'
+          logger.client?.send(message)
+        }
+      })
+    } else if (logger.client && logger.client.isConnected()) {
+      logger.client.disconnect()
+    }
+  }
+)
 
 async function onTaskStart(task: Task) {
   await tskAPI.start(task)
+  logger.visible = true
   emitter.emit('refresh')
   emitter.emit('update:auto-refresh', { enable: true, interval: 5 })
 }
@@ -122,7 +163,7 @@ async function onRecordExpand(task: Task) {
           <template #title>
             上次执行结束时间：{{ record.job.lastFinishedAt.format('MM-DD HH:mm:ss') }}
           </template>
-          <a-tag color="processing">
+          <a-tag class="hover:cursor-pointer" color="processing" @click="() => (logger.visible = true)">
             <template #icon>
               <SyncOutlined :spin="true" />
             </template>
@@ -161,4 +202,11 @@ async function onRecordExpand(task: Task) {
       />
     </template>
   </EditableTable>
+  <a-drawer
+    v-model:open="logger.visible"
+    title="任务日志"
+    placement="right"
+  >
+    <pre>{{ logger.content }}</pre>
+  </a-drawer>
 </template>
