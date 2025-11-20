@@ -309,6 +309,34 @@ const mapperDict = {
         }
       }),
       newFun: () => newOne(ReqInfo)
+    },
+    minioCli: {
+      type: 'FormGroup',
+      label: 'MinIO配置',
+      canFold: false,
+      prefix: true,
+      items: new Mapper({
+        endPoint: {
+          type: 'Input',
+          label: '端URL'
+        },
+        port: {
+          type: 'Number',
+          label: '端口'
+        },
+        useSSL: {
+          type: 'Switch',
+          label: '是否SSL'
+        },
+        accessKey: {
+          type: 'Input',
+          label: '对接KEY'
+        },
+        secretKey: {
+          type: 'Password',
+          label: '密钥KEY'
+        }
+      })
     }
   }
 }

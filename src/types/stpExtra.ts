@@ -139,22 +139,56 @@ export class ReqInfo {
   }
 }
 
+export class MinioCfg {
+  endPoint: string
+  port: number
+  useSSL: boolean
+  accessKey: string
+  secretKey: string
+
+  constructor() {
+    this.endPoint = ''
+    this.port = -1
+    this.useSSL = false
+    this.accessKey = ''
+    this.secretKey = ''
+  }
+
+  reset() {
+    this.endPoint = ''
+    this.port = -1
+    this.useSSL = false
+    this.accessKey = ''
+    this.secretKey = ''
+  }
+
+  static copy(src: any, tgt?: MinioCfg, force = false) {
+    return gnlCpy(MinioCfg, src, tgt, { force })
+  }
+}
+
 export class PcsingExtra {
   storeToDB: boolean
   pushPoints: ReqInfo[]
+  minioCli: MinioCfg
 
   constructor() {
     this.storeToDB = true
     this.pushPoints = []
+    this.minioCli = new MinioCfg()
   }
 
   reset() {
     this.storeToDB = true
     this.pushPoints = []
+    this.minioCli.reset()
   }
 
   static copy(src: any, tgt?: PcsingExtra, force = false) {
-    return gnlCpy(PcsingExtra, src, tgt, { force, cpyMapper: { pushPoint: ReqInfo.copy } })
+    return gnlCpy(PcsingExtra, src, tgt, {
+      force,
+      cpyMapper: { pushPoint: ReqInfo.copy, minioCli: MinioCfg.copy }
+    })
   }
 }
 
